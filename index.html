@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Operacional - Gestão ETE</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome para Ícones de Menu -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brandBlue: '#1e3a8a',      
+                        brandOrange: '#f97316',    
+                        brandGreen: '#16a34a',     
+                        brandSlate: '#f1f5f9',
+                        darkBg: '#0f172a',
+                        darkCard: '#1e293b',
+                        brandBlueLight: '#3b82f6'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; transition: background-color 0.3s ease, color 0.3s ease; overflow-x: hidden; }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(30, 58, 138, 0.1); transition: all 0.3s ease; }
+        .dark .glass-card { background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); color: #f1f5f9; }
+        .dark body { background-color: #0f172a; color: #f1f5f9; }
+        
+        .screen { display: none; opacity: 0; transition: opacity 0.4s ease-in-out; width: 100%; min-height: 100vh; flex-direction: column; }
+        .screen.active { display: flex !important; opacity: 1; }
+
+        .centered-content { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; width: 100%; padding: 1.5rem; }
+        .btn-nav { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; cursor: pointer; border: none; flex-shrink: 0; }
+        
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .dark .custom-scroll::-webkit-scrollbar-thumb { background: #334155; }
+        
+        /* CORREÇÃO PARA iPHONE/iOS */
+        .dark input[type="date"], .dark input[type="number"], .dark textarea { color-scheme: dark; }
+    </style>
+</head>
+
+<body class="bg-brandSlate text-gray-800">
+
+    <!-- BOTÃO MODO NOITE REPOSICIONADO PARA EVITAR SOBREPOSIÇÃO -->
+    <button id="theme-toggle-btn" onclick="toggleDarkMode()" class="fixed bottom-6 right-6 w-12 h-12 bg-brandBlue text-white dark:bg-white/10 rounded-full shadow-2xl z-[100] flex items-center justify-center text-xl border border-white/20 hover:scale-110 transition-all">
+        <i id="theme-icon-global" class="fa-solid fa-moon"></i>
+    </button>
+
+    <!-- TELA 1: CAPA -->
+    <div id="coverScreen" class="screen active relative overflow-y-auto">
+        <div class="centered-content bg-brandBlue dark:bg-darkBg">
+            <div class="relative bg-white dark:bg-darkCard rounded-[2.5rem] shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col md:flex-row border border-white/10">
+                <div class="md:w-1/2 p-10 flex flex-col justify-center items-center bg-slate-50 dark:bg-slate-900/50 border-r border-gray-100 dark:border-white/5 text-center">
+                    <div class="mb-6">
+                        <svg width="100" height="100" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="100" cy="110" r="70" stroke="#1e3a8a" stroke-width="8" stroke-dasharray="300 140" />
+                            <path d="M100 65C100 65 75 95 75 115C75 128.807 86.1929 140 100 140C113.807 140 125 128.807 125 115C125 95 100 65 100 65Z" fill="#3b82f6"/>
+                        </svg>
+                    </div>
+                    <h2 class="text-brandBlue dark:text-brandBlueLight font-bold text-sm uppercase tracking-widest mb-2">Sistema Operacional</h2>
+                    <p class="text-gray-400 text-[10px] uppercase font-bold italic">By Jocivaldo Sousa | v1.0</p>
+                </div>
+                <div class="md:w-1/2 p-10 flex flex-col justify-center items-center md:items-start text-center md:text-left">
+                    <h1 class="text-2xl md:text-4xl font-black text-brandBlue dark:text-white leading-tight uppercase tracking-tighter">ANÁLISE DA MEDIÇÃO <br><span class="text-brandOrange">DIÁRIA DE VOLUME</span></h1>
+                    <button onclick="navigateTo('indexScreen')" class="mt-10 w-full bg-brandBlue dark:bg-brandBlueLight hover:bg-blue-800 text-white font-black py-5 px-8 rounded-2xl transition-all shadow-xl">ACESSAR SISTEMA</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TELA 2: MENU -->
+    <div id="indexScreen" class="screen relative overflow-y-auto bg-brandSlate dark:bg-darkBg">
+        <nav class="w-full p-4 flex justify-between items-center bg-white dark:bg-darkCard shadow-md sticky top-0 z-[60]">
+            <button onclick="navigateTo('coverScreen')" class="btn-nav bg-brandBlue text-white" title="Início"><i class="fa-solid fa-house"></i></button>
+            <span class="text-xs font-black uppercase text-brandBlue dark:text-white tracking-widest">Menu Principal <span class="opacity-50 ml-1">v1.0</span></span>
+            <div class="w-[44px]"></div>
+        </nav>
+        <div class="flex-1 flex flex-col items-center justify-center p-6">
+            <div class="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div onclick="navigateTo('dashboardScreen')" class="glass-card p-10 rounded-[2.5rem] text-center cursor-pointer hover:border-brandBlue border-2 border-transparent group transition-all">
+                    <i class="fa-solid fa-chart-line text-4xl text-brandBlue mb-4 group-hover:scale-110 transition-transform"></i>
+                    <h3 class="text-xl font-black text-brandBlue dark:text-white uppercase">Análise de Volume</h3>
+                    <p class="text-xs text-gray-400 mt-2">Dados diários e gráficos de vazão</p>
+                </div>
+                <div onclick="navigateTo('locationScreen')" class="glass-card p-10 rounded-[2.5rem] text-center cursor-pointer hover:border-brandGreen border-2 border-transparent group transition-all">
+                    <i class="fa-solid fa-map-location-dot text-4xl text-brandGreen mb-4 group-hover:scale-110 transition-transform"></i>
+                    <h3 class="text-xl font-black text-brandGreen uppercase">Localização</h3>
+                    <p class="text-xs text-gray-400 mt-2">Georreferenciamento e rotas GPS</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TELA 3: DASHBOARD OPERACIONAL -->
+    <div id="dashboardScreen" class="screen overflow-y-auto bg-brandSlate dark:bg-darkBg pb-10">
+        <nav class="w-full p-4 flex justify-between items-center bg-white dark:bg-darkCard shadow-md sticky top-0 z-[60] flex-wrap gap-3">
+            <div class="flex gap-2">
+                <button onclick="navigateTo('coverScreen')" class="btn-nav bg-brandBlue text-white" title="Início"><i class="fa-solid fa-house"></i></button>
+                <button onclick="navigateTo('indexScreen')" class="btn-nav bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300" title="Menu"><i class="fa-solid fa-arrow-left"></i></button>
+            </div>
+            
+            <div id="nav-action-buttons" class="flex gap-2 items-center flex-wrap">
+                <button onclick="baixarPainel()" class="flex items-center gap-2 px-3 h-[44px] bg-brandGreen text-white rounded-xl shadow-md font-bold text-[10px] uppercase tracking-wider hover:bg-green-700 transition-colors" title="Exportar Relatório PDF/HTML">
+                    <i class="fa-solid fa-file-export text-sm"></i> <span class="hidden sm:inline">Exportar</span>
+                </button>
+                <button onclick="backupDados()" class="flex items-center gap-2 px-3 h-[44px] bg-blue-600 text-white rounded-xl shadow-md font-bold text-[10px] uppercase tracking-wider hover:bg-blue-800 transition-colors" title="Fazer Backup (JSON)">
+                    <i class="fa-solid fa-download text-sm"></i> <span class="hidden sm:inline">Backup</span>
+                </button>
+                <button onclick="document.getElementById('restoreInput').click()" class="flex items-center gap-2 px-4 h-[44px] bg-slate-700 text-white rounded-xl shadow-xl border-2 border-white/20 font-black text-[11px] uppercase tracking-widest hover:bg-slate-800 transition-colors" id="btn-restore-main" title="Restaurar Backup de Dados">
+                    <i class="fa-solid fa-upload text-sm"></i> <span>Restore JSON</span>
+                </button>
+            </div>
+            <input type="file" id="restoreInput" accept="application/json" class="hidden">
+        </nav>
+
+        <div class="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
+            <header class="bg-brandBlue dark:bg-darkCard text-white p-6 rounded-3xl shadow-xl border-b-4 border-brandOrange">
+                <h1 class="text-xl md:text-2xl font-black uppercase tracking-tight">Medição Diária Pulsar AVFM 6.1</h1>
+                <p class="text-brandOrange font-bold text-xs uppercase mt-1 tracking-widest italic">ETE São Francisco do Conde</p>
+                <div id="periodo-display" class="mt-2 text-[10px] font-black uppercase text-brandOrange italic"></div>
+            </header>
+
+            <div id="filter-bar-section" class="bg-white dark:bg-darkCard p-6 rounded-3xl shadow-sm grid grid-cols-1 md:grid-cols-2 lg:flex items-end gap-4 border border-blue-50 dark:border-white/5">
+                <div class="flex-1">
+                    <label class="block text-[10px] font-black text-brandBlue uppercase mb-2">Início do Período</label>
+                    <input type="date" id="filtro-inicio" class="w-full border-gray-200 dark:bg-slate-900 dark:text-white border p-3 rounded-xl text-sm">
+                </div>
+                <div class="flex-1">
+                    <label class="block text-[10px] font-black text-brandBlue uppercase mb-2">Fim do Período</label>
+                    <input type="date" id="filtro-fim" class="w-full border-gray-200 dark:bg-slate-900 dark:text-white border p-3 rounded-xl text-sm">
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="aplicarFiltro()" class="px-8 bg-brandBlue text-white py-3 rounded-xl font-bold text-sm">Filtrar</button>
+                    <button onclick="limparFiltro()" class="px-8 bg-gray-100 dark:bg-slate-800 text-gray-500 py-3 rounded-xl font-bold text-sm">Limpar</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="glass-card p-5 rounded-2xl border-l-4 border-brandBlue">
+                    <p class="text-[9px] font-bold text-gray-400 uppercase">Volume Total (L)</p>
+                    <p id="total" class="text-xl font-black text-brandBlue dark:text-brandBlueLight mt-1">--</p>
+                </div>
+                <div class="glass-card p-5 rounded-2xl border-l-4 border-brandBlue">
+                    <p class="text-[9px] font-bold text-gray-400 uppercase">Média Diária (L)</p>
+                    <p id="media" class="text-xl font-black text-brandBlue mt-1">--</p>
+                </div>
+                <div class="glass-card p-5 rounded-2xl border-l-4 border-brandOrange relative">
+                    <p class="text-[9px] font-bold text-gray-400 uppercase">Pico Máximo (L)</p>
+                    <p id="max" class="text-xl font-black text-brandOrange mt-1">--</p>
+                    <p id="data_max" class="text-[10px] text-gray-500 dark:text-gray-400 font-bold mt-1">--</p>
+                </div>
+                <div class="glass-card p-5 rounded-2xl border-l-4 border-blue-900 relative">
+                    <p class="text-[9px] font-bold text-gray-400 uppercase">Volume Mínimo (L)</p>
+                    <p id="min" class="text-xl font-black text-blue-900 dark:text-brandBlueLight mt-1">--</p>
+                    <p id="data_min" class="text-[10px] text-gray-500 dark:text-gray-400 font-bold mt-1">--</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-orange-50 dark:bg-orange-950/20 p-5 rounded-2xl shadow-sm border-l-4 border-brandOrange">
+                    <p class="text-[10px] font-bold text-brandOrange uppercase">Média Vazão (L/s)</p>
+                    <p id="media_ls" class="text-xl md:text-2xl font-black text-brandOrange mt-1">--</p>
+                </div>
+                <div class="bg-orange-50 dark:bg-orange-950/20 p-5 rounded-2xl shadow-sm border-l-4 border-brandOrange">
+                    <p class="text-[10px] font-bold text-brandOrange uppercase">Vazão Máxima (L/s)</p>
+                    <p id="max_ls" class="text-xl md:text-2xl font-black text-brandOrange mt-1">--</p>
+                </div>
+                <div class="bg-orange-50 dark:bg-orange-950/20 p-5 rounded-2xl shadow-sm border-l-4 border-brandOrange">
+                    <p class="text-[10px] font-bold text-brandOrange uppercase">Vazão Mínima (L/s)</p>
+                    <p id="min_ls" class="text-xl md:text-2xl font-black text-brandOrange mt-1">--</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-1 space-y-6">
+                    <!-- Formulário Original de Volume -->
+                    <div id="card-novo-registro" class="bg-white dark:bg-darkCard p-6 rounded-3xl shadow-sm border border-gray-100">
+                        <h3 class="font-bold text-brandBlue uppercase text-[10px] mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-plus-circle"></i> Inserir Medição
+                        </h3>
+                        <div class="space-y-4">
+                            <input type="date" id="data" class="w-full border-gray-200 dark:bg-slate-900 dark:text-white border p-3 rounded-xl text-sm outline-none">
+                            <input type="number" id="valor" placeholder="Volume (Litros)" class="w-full border-gray-200 dark:bg-slate-900 dark:text-white border p-3 rounded-xl text-sm outline-none">
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="salvar()" class="bg-brandBlue text-white font-bold py-3 rounded-xl text-xs shadow-md">Salvar</button>
+                                <button onclick="excluir()" class="bg-red-50 text-red-600 font-bold py-3 rounded-xl text-xs">Apagar</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- IMPLEMENTAÇÃO: Novo Módulo de Ocorrências (Entrada) -->
+                    <div id="card-nova-ocorrencia" class="bg-white dark:bg-darkCard p-6 rounded-3xl shadow-sm border border-gray-100">
+                        <h3 class="font-bold text-brandOrange uppercase text-[10px] mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-clipboard-list"></i> Registrar Ocorrência
+                        </h3>
+                        <div class="space-y-4">
+                            <input type="date" id="data_ocorrencia" class="w-full border-gray-200 dark:bg-slate-900 dark:text-white border p-3 rounded-xl text-sm outline-none">
+                            <textarea id="texto_ocorrencia" rows="3" placeholder="Motivo da manutenção/alteração..." class="w-full border-gray-200 dark:bg-slate-900 dark:text-white border p-3 rounded-xl text-sm outline-none resize-none"></textarea>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="salvarOcorrencia()" class="bg-brandOrange text-white font-bold py-3 rounded-xl text-xs shadow-md">Salvar</button>
+                                <button onclick="excluirOcorrencia()" class="bg-red-50 text-red-600 font-bold py-3 rounded-xl text-xs">Apagar</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Histórico Original -->
+                    <div class="bg-white dark:bg-darkCard p-6 rounded-3xl shadow-sm border border-gray-100">
+                        <h3 class="font-bold text-brandBlue uppercase text-[10px] mb-4">Histórico Recente</h3>
+                        <div class="max-h-60 overflow-y-auto custom-scroll pr-1">
+                            <table class="w-full text-[10px]">
+                                <tbody id="tabela" class="divide-y divide-gray-100 dark:divide-white/5"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-2">
+                    <div class="bg-white dark:bg-darkCard p-6 rounded-3xl shadow-sm border border-gray-100 h-full min-h-[400px] flex flex-col">
+                        <h3 class="font-bold text-brandBlue uppercase text-[10px] mb-2 text-center italic tracking-widest">Perfil Volumétrico Diário</h3>
+                        
+                        <div class="flex justify-center gap-4 mb-4 flex-wrap">
+                            <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#f97316]"></span><span class="text-[9px] font-bold text-gray-500 uppercase">Máximo</span></div>
+                            <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#1e3a8a]"></span><span class="text-[9px] font-bold text-gray-500 uppercase">Mínimo</span></div>
+                            <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#3b82f6]"></span><span class="text-[9px] font-bold text-gray-500 uppercase">Normal</span></div>
+                        </div>
+
+                        <div class="relative flex-1 min-h-[300px]"><canvas id="grafico"></canvas></div>
+
+                        <!-- IMPLEMENTAÇÃO: Módulo de Ocorrências (Visualização Abaixo do Gráfico) -->
+                        <div id="painel-ocorrencias" class="mt-6 border-t-2 border-gray-100 dark:border-white/5 pt-4 hidden transition-all">
+                            <h4 class="text-[10px] font-bold text-brandOrange uppercase tracking-widest mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-triangle-exclamation"></i> Ocorrências Registradas no Período
+                            </h4>
+                            <div id="lista-ocorrencias" class="space-y-3 max-h-48 overflow-y-auto custom-scroll pr-2">
+                                <!-- Ocorrências injetadas pelo JS -->
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <footer class="bg-white dark:bg-darkCard p-6 rounded-3xl shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 border-t-4 border-brandBlue transition-colors">
+                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic">Operação ETE São Francisco do Conde</p>
+                <span class="text-brandBlue font-black italic text-xs uppercase">By Jocivaldo Sousa | v1.0</span>
+            </footer>
+        </div>
+    </div>
+
+    <!-- TELA 4: LOCALIZAÇÃO -->
+    <div id="locationScreen" class="screen overflow-y-auto bg-brandSlate dark:bg-darkBg pb-10">
+        <nav class="w-full p-4 flex justify-between items-center bg-white dark:bg-darkCard shadow-md sticky top-0 z-[60]">
+            <div class="flex gap-2">
+                <button onclick="navigateTo('coverScreen')" class="btn-nav bg-brandBlue text-white" title="Início"><i class="fa-solid fa-house"></i></button>
+                <button onclick="navigateTo('indexScreen')" class="btn-nav bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300" title="Menu"><i class="fa-solid fa-arrow-left"></i></button>
+            </div>
+            <span class="text-xs font-black uppercase text-brandGreen tracking-widest">Localização Operacional</span>
+            <div class="w-[44px]"></div>
+        </nav>
+        <div class="max-w-7xl mx-auto p-4 md:p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="equipmentList"></div>
+        <footer class="mt-10 max-w-7xl mx-auto p-8 bg-white dark:bg-darkCard rounded-3xl text-center border-t-4 border-brandGreen transition-colors">
+            <span class="text-brandGreen font-black italic text-xs uppercase tracking-widest">By Jocivaldo Sousa | v1.0</span>
+        </footer>
+    </div>
+
+    <!-- MODAL DE MENSAGENS -->
+    <div id="customModal" class="fixed inset-0 z-[200] hidden items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity opacity-0">
+        <div class="bg-white dark:bg-darkCard p-8 rounded-3xl shadow-2xl transform transition-transform scale-95 max-w-sm w-full border border-gray-100 dark:border-white/10 text-center mx-4">
+            <div id="modalIcon" class="w-16 h-16 bg-green-100 dark:bg-green-900/30 text-brandGreen rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+                <i class="fa-solid fa-check"></i>
+            </div>
+            <h3 id="modalTitle" class="text-xl font-black text-brandBlue dark:text-white uppercase mb-2">Sucesso</h3>
+            <p id="modalMessage" class="text-sm text-gray-500 dark:text-gray-400 mb-6">Operação realizada.</p>
+            <button onclick="closeModal()" class="w-full bg-brandBlue text-white font-bold py-3 rounded-xl hover:bg-blue-800 transition-colors shadow-md">OK</button>
+        </div>
+    </div>
+
+    <script>
+        const equipamentos = [
+            { nome: "ETE-SFC", coord: "-12.613218,-38.692943", tipo: "ETE" },
+            { nome: "EEE-01", coord: "-12.627059,-38.675835", tipo: "Elevatória" },
+            { nome: "EEE-02", coord: "-12.626911,-38.682503", tipo: "Elevatória" },
+            { nome: "EEE-03", coord: "-12.622945,-38.691262", tipo: "Elevatória" },
+            { nome: "EEE-04", coord: "-12.614003,-38.695577", tipo: "Elevatória" },
+            { nome: "EEE-05", coord: "-12.616133,-38.665161", tipo: "Elevatória" },
+            { nome: "EEE-06", coord: "-12.618434,-38.668184", tipo: "Elevatória" },
+            { nome: "EEE-07", coord: "-12.601390,-38.682163", tipo: "Elevatória" },
+            { nome: "EEE-08", coord: "-12.606339,-38.682420", tipo: "Elevatória" },
+            { nome: "EEE-8.3", coord: "-12.638088,-38.543197", tipo: "Elevatória" },
+            { nome: "EEE-09", coord: "-12.611839,-38.692216", tipo: "Elevatória" },
+            { nome: "CAIXA 01", coord: "-12.622075,-38.686838", tipo: "Caixa" },
+            { nome: "CAIXA 02", coord: "-12.618479,-38.690726", tipo: "Caixa" },
+            { nome: "DAFA SANTO ESTÊVÃO", coord: "-12.721435,-38.602775", tipo: "DAFA" }
+        ];
+
+        let dados = [];
+        /* IMPLEMENTAÇÃO: Nova variável para armazenar ocorrências */
+        let ocorrencias = [];
+        window.myChart = null;
+
+        function showModal(title, message, isError = false) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalMessage').innerText = message;
+            
+            const iconEl = document.getElementById('modalIcon');
+            if (isError) {
+                iconEl.className = "w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl";
+                iconEl.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            } else {
+                iconEl.className = "w-16 h-16 bg-green-100 dark:bg-green-900/30 text-brandGreen rounded-full flex items-center justify-center mx-auto mb-4 text-3xl";
+                iconEl.innerHTML = '<i class="fa-solid fa-check"></i>';
+            }
+
+            const modal = document.getElementById('customModal');
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.querySelector('div').classList.remove('scale-95');
+                modal.querySelector('div').classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('customModal');
+            modal.classList.add('opacity-0');
+            modal.querySelector('div').classList.remove('scale-100');
+            modal.querySelector('div').classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.style.display = 'none';
+            }, 300);
+        }
+
+        function navigateTo(screenId) {
+            document.querySelectorAll('.screen').forEach(s => { s.classList.remove('active'); s.style.display = 'none'; });
+            const target = document.getElementById(screenId);
+            if (target) {
+                target.style.display = (screenId === 'coverScreen' || screenId === 'indexScreen') ? 'flex' : 'block';
+                setTimeout(() => target.classList.add('active'), 20);
+                window.scrollTo(0,0);
+            }
+            if (screenId === 'dashboardScreen') setTimeout(atualizar, 150);
+        }
+
+        function toggleDarkMode() {
+            const isDark = document.body.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            document.getElementById('theme-icon-global').className = isDark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+            if (window.myChart) atualizar();
+        }
+
+        function renderEquipments() {
+            const list = document.getElementById('equipmentList');
+            if (!list) return;
+            list.innerHTML = equipamentos.map(eq => `
+                <div onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${eq.coord}&travelmode=driving&layer=s','_blank')" class="glass-card p-6 rounded-3xl border-l-8 border-brandGreen hover:scale-105 cursor-pointer flex justify-between items-center transition-all">
+                    <div>
+                        <p class="text-[9px] font-black text-brandGreen uppercase opacity-60 tracking-widest">${eq.tipo}</p>
+                        <h4 class="text-sm font-black dark:text-white uppercase mt-0.5">${eq.nome}</h4>
+                        <p class="text-[8px] text-gray-400 font-mono mt-1">${eq.coord}</p>
+                    </div>
+                    <div class="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center text-brandGreen transition-colors">
+                        <i class="fa-solid fa-location-arrow"></i>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        const formatNumber = num => Math.round(num).toLocaleString('pt-BR');
+        const formatDecimal = num => num.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2});
+        const formatarData = d => d.split("-").reverse().slice(0,2).join("/");
+
+        window.salvar = function(){
+            const dInput = document.getElementById('data').value;
+            const vInput = parseFloat(document.getElementById('valor').value);
+            if(!dInput || isNaN(vInput)) return;
+            let exist = dados.find(d => d.data === dInput);
+            if(exist) exist.valor = vInput; else dados.push({data: dInput, valor: vInput});
+            dados.sort((a,b) => a.data.localeCompare(b.data));
+            localStorage.setItem('dados_ete', JSON.stringify(dados));
+            window.listaAtual = dados.slice();
+            atualizar();
+            document.getElementById('valor').value = "";
+        };
+
+        window.excluir = function(){
+            const dInput = document.getElementById('data').value;
+            const idx = dados.findIndex(d => d.data === dInput);
+            if(idx !== -1) { 
+                dados.splice(idx, 1); 
+                localStorage.setItem('dados_ete', JSON.stringify(dados)); 
+                window.listaAtual = dados.slice(); 
+                atualizar(); 
+            }
+        };
+
+        /* IMPLEMENTAÇÃO: Funções de manipulação das Ocorrências */
+        window.salvarOcorrencia = function(){
+            const dInput = document.getElementById('data_ocorrencia').value;
+            const tInput = document.getElementById('texto_ocorrencia').value.trim();
+            if(!dInput || !tInput) {
+                showModal("Atenção", "Preencha a data e o texto da ocorrência.", true);
+                return;
+            }
+            let exist = ocorrencias.find(o => o.data === dInput);
+            if(exist) exist.texto = tInput; else ocorrencias.push({data: dInput, texto: tInput});
+            ocorrencias.sort((a,b) => a.data.localeCompare(b.data));
+            localStorage.setItem('ocorrencias_ete', JSON.stringify(ocorrencias));
+            atualizar(); 
+            document.getElementById('texto_ocorrencia').value = "";
+            showModal("Ocorrência Salva", "O registro foi salvo com sucesso!");
+        };
+
+        window.excluirOcorrencia = function(){
+            const dInput = document.getElementById('data_ocorrencia').value;
+            const idx = ocorrencias.findIndex(o => o.data === dInput);
+            if(idx !== -1) { 
+                ocorrencias.splice(idx, 1); 
+                localStorage.setItem('ocorrencias_ete', JSON.stringify(ocorrencias)); 
+                atualizar(); 
+                showModal("Removido", "Registro de ocorrência apagado.");
+            }
+        };
+
+        window.aplicarFiltro = function(){
+            const i = document.getElementById('filtro-inicio').value;
+            const f = document.getElementById('filtro-fim').value;
+            window.listaAtual = dados.filter(d => (!i || d.data >= i) && (!f || d.data <= f));
+            atualizar();
+            document.getElementById('periodo-display').innerText = (i || f) ? `${i.split('-').reverse().join('/')} a ${f.split('-').reverse().join('/')}` : "";
+        };
+
+        window.limparFiltro = function(){
+            window.listaAtual = dados.slice();
+            document.getElementById('filtro-inicio').value = ""; 
+            document.getElementById('filtro-fim').value = "";
+            document.getElementById('periodo-display').innerText = "";
+            atualizar();
+        };
+
+        window.atualizar = function() {
+            const lista = (window.listaAtual || []).sort((a,b) => a.data.localeCompare(b.data));
+            const tbody = document.getElementById('tabela'); if (!tbody) return;
+            tbody.innerHTML = "";
+            
+            /* IMPLEMENTAÇÃO: Filtrar Ocorrências e Exibir Abaixo do Gráfico */
+            const iFiltro = document.getElementById('filtro-inicio').value;
+            const fFiltro = document.getElementById('filtro-fim').value;
+            const listaOcorrencias = ocorrencias.filter(o => (!iFiltro || o.data >= iFiltro) && (!fFiltro || o.data <= fFiltro));
+            
+            const painelOcorrencias = document.getElementById('painel-ocorrencias');
+            const divLista = document.getElementById('lista-ocorrencias');
+            
+            if (listaOcorrencias.length > 0) {
+                painelOcorrencias.classList.remove('hidden');
+                divLista.innerHTML = listaOcorrencias.map(o => `
+                    <div class="bg-orange-50 dark:bg-orange-950/20 p-4 rounded-2xl border-l-4 border-brandOrange">
+                        <span class="text-[10px] font-black text-brandOrange uppercase tracking-widest">${formatarData(o.data)}</span>
+                        <p class="text-sm text-gray-700 dark:text-gray-300 mt-1">${o.texto}</p>
+                    </div>
+                `).join('');
+            } else {
+                painelOcorrencias.classList.add('hidden');
+            }
+
+            if(!lista.length) { 
+                ["total","media","max","min","media_ls","max_ls","min_ls","data_max","data_min"].forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.innerText = "--";
+                }); 
+                if(window.myChart) window.myChart.destroy(); 
+                return; 
+            }
+            
+            const v = lista.map(d => d.valor);
+            const total = v.reduce((a,b) => a + b, 0);
+            const media = total / v.length;
+            const max = Math.max(...v);
+            const min = Math.min(...v);
+            
+            document.getElementById('total').innerText = formatNumber(total);
+            document.getElementById('media').innerText = formatNumber(media);
+            document.getElementById('max').innerText = formatNumber(max);
+            document.getElementById('min').innerText = formatNumber(min);
+            
+            document.getElementById('media_ls').innerText = formatDecimal(media/86400);
+            document.getElementById('max_ls').innerText = formatDecimal(max/86400);
+            document.getElementById('min_ls').innerText = formatDecimal(min/86400);
+
+            const maxItem = lista.find(d => d.valor === max);
+            const minItem = lista.find(d => d.valor === min);
+            
+            document.getElementById('data_max').innerText = maxItem ? "Em: " + formatarData(maxItem.data) : "--";
+            document.getElementById('data_min').innerText = minItem ? "Em: " + formatarData(minItem.data) : "--";
+
+            lista.slice(-15).forEach(d => {
+                tbody.innerHTML += `<tr class="dark:text-white/80 transition-colors"><td class='p-3 font-bold text-xs'>${formatarData(d.data)}</td><td class='p-3 text-right font-black text-xs'>${formatNumber(d.valor)} L</td></tr>`;
+            });
+
+            if(window.myChart) window.myChart.destroy();
+            const isDark = document.body.classList.contains('dark');
+            window.myChart = new Chart(document.getElementById('grafico'), {
+                type: 'bar', 
+                data: { 
+                    labels: lista.map(d => formatarData(d.data)), 
+                    datasets: [{ 
+                        data: v, 
+                        backgroundColor: v.map(val => val === max ? '#f97316' : (val === min ? '#1e3a8a' : '#3b82f6')), 
+                        borderRadius: 6 
+                    }] 
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: function(context) { return formatNumber(context.raw) + ' L'; } } }
+                    }, 
+                    scales: { 
+                        y: { grid: { color: isDark ? '#334155' : '#f1f5f9' }, ticks: { color: '#94a3b8', font: { size: 9 }, callback: function(value) { return formatNumber(value); } } }, 
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 9 } } } 
+                    } 
+                }
+            });
+        };
+
+        window.baixarPainel = function(){
+            const clone = document.documentElement.cloneNode(true);
+            
+            /* IMPLEMENTAÇÃO: Remoção dos cards de gestão e também do card de Ocorrência na exportação */
+            const sel = ['#nav-action-buttons', '#restoreInput', '#card-novo-registro', '#card-nova-ocorrencia'];
+            sel.forEach(s => { const el = clone.querySelector(s); if(el) el.remove(); });
+            
+            const ds = document.createElement('script');
+            /* IMPLEMENTAÇÃO: Exportar os dados de volume E os de ocorrências */
+            ds.innerHTML = `window.EXPORTED_DATA = ${JSON.stringify(window.listaAtual)}; window.EXPORTED_OCORRENCIAS = ${JSON.stringify(ocorrencias)};`;
+            clone.querySelector('head').appendChild(ds);
+            
+            clone.querySelectorAll('.screen').forEach(s => { s.style.display = 'none'; s.classList.remove('active'); });
+            const d = clone.querySelector('#coverScreen');
+            if(d) { d.style.display = 'flex'; d.classList.add('active'); }
+            
+            const blob = new Blob(["<!DOCTYPE html>\n" + clone.outerHTML], {type:'text/html'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'relatorio_analise_ete.html'; a.click();
+        };
+
+        window.backupDados = function(){
+            /* IMPLEMENTAÇÃO: Backup agora salva os Dados E as Ocorrências num único objeto versão 2 */
+            const backupPayload = { version: 2, dados: dados, ocorrencias: ocorrencias };
+            const blob = new Blob([JSON.stringify(backupPayload)], {type:'application/json'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'backup_medicoes_ete.json'; a.click();
+        };
+
+        window.addEventListener('DOMContentLoaded', function(){
+            renderEquipments();
+            
+            if (localStorage.getItem('theme') === 'dark') { 
+                document.body.classList.add('dark'); 
+                document.getElementById('theme-icon-global').className = 'fa-solid fa-sun'; 
+            }
+            
+            const rd = (typeof window.EXPORTED_DATA !== 'undefined') ? window.EXPORTED_DATA : (JSON.parse(localStorage.getItem('dados_ete')) || []);
+            dados = Array.isArray(rd) ? rd : [];
+            window.listaAtual = dados.slice();
+
+            /* IMPLEMENTAÇÃO: Recuperar Ocorrências ao abrir a página */
+            const ro = (typeof window.EXPORTED_OCORRENCIAS !== 'undefined') ? window.EXPORTED_OCORRENCIAS : (JSON.parse(localStorage.getItem('ocorrencias_ete')) || []);
+            ocorrencias = Array.isArray(ro) ? ro : [];
+            
+            const ri = document.getElementById('restoreInput');
+            if(ri) {
+                ri.addEventListener('change', function(e) {
+                    const file = e.target.files[0]; if (!file) return;
+                    const r = new FileReader();
+                    r.onload = function(ev) {
+                        try {
+                            const imp = JSON.parse(ev.target.result);
+                            /* IMPLEMENTAÇÃO: Regra de Restore retrocompatível (aceita backup v1 e v2) */
+                            if (Array.isArray(imp)) { 
+                                // É um backup antigo (v1), só carrega os dados de volume
+                                dados = imp; 
+                                localStorage.setItem('dados_ete', JSON.stringify(dados)); 
+                                window.listaAtual = dados.slice(); 
+                                atualizar(); 
+                                showModal("Restore Concluído", "Dados de volume (Backup V1) importados com sucesso!");
+                            } else if (imp.version === 2) {
+                                // É um backup novo (v2), carrega volume e ocorrências
+                                dados = imp.dados || [];
+                                ocorrencias = imp.ocorrencias || [];
+                                localStorage.setItem('dados_ete', JSON.stringify(dados)); 
+                                localStorage.setItem('ocorrencias_ete', JSON.stringify(ocorrencias)); 
+                                window.listaAtual = dados.slice(); 
+                                atualizar();
+                                showModal("Restore Concluído", "Dados de volume e ocorrências importados com sucesso!");
+                            } else {
+                                showModal("Ficheiro Inválido", "O arquivo selecionado não é válido.", true);
+                            }
+                        } catch (err) { 
+                            showModal("Erro de Leitura", "O arquivo selecionado está corrompido.", true); 
+                        }
+                        e.target.value = ''; 
+                    };
+                    r.readAsText(file);
+                });
+            }
+            
+            atualizar();
+        });
+    </script>
+</body>
+</html>
