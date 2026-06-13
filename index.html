@@ -1,744 +1,1283 @@
 <!DOCTYPE html>
-<html lang="pt-BR"><head>
+<html lang="pt-br">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema Operacional - Gestão ETE</title>
-
+    <title>DashControler - EMBASA (Cloud)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- FontAwesome para Ícones de Menu -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
+    <!-- Biblioteca para gerar PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        brandBlue: '#1e3a8a',      
-                        brandOrange: '#f97316',    
-                        brandGreen: '#16a34a',     
-                        brandSlate: '#f1f5f9',
-                        darkBg: '#0f172a',
-                        darkCard: '#1e293b',
-                        brandBlueLight: '#3b82f6'
-                    }
-                }
-            }
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <style>
+        .hidden-tab { display: none; }
+        .active-tab { display: block; }
+        body { transition: background-color 0.3s, color 0.3s; }
+        table { border-collapse: collapse; }
+        th, td { border: 1px solid #e2e8f0; padding: 12px 8px; }
+        .dark th, .dark td { border-color: #374151; }
+        
+        .active-tab { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Proteção e Quebras Estritas para o PDF */
+        .avoid-break { page-break-inside: avoid; break-inside: avoid; }
+        .pdf-page-break { page-break-after: always; height: 0; margin: 0; border: none; overflow: hidden; }
+    </style>
+</head>
+<body class="font-sans text-gray-800 dark:text-gray-200 bg-[#f8fafc] dark:bg-gray-900 relative min-h-screen">
+
+<!-- TELA DE LOGIN -->
+<div id="login-screen" class="fixed inset-0 bg-gray-100 dark:bg-gray-900 z-[9999] flex items-center justify-center">
+    <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md">
+        <h2 class="text-2xl font-black text-center text-blue-700 mb-6">DashControler</h2>
+        <p class="text-center text-gray-500 mb-6">Acesso Restrito</p>
+
+        <div class="mb-4">
+            <label class="block text-sm font-bold mb-2">Usuário</label>
+            <input type="text" id="login-user" class="w-full border p-3 rounded" placeholder="Usuário">
+        </div>
+
+        <div class="mb-6">
+            <label class="block text-sm font-bold mb-2">Senha</label>
+            <input type="password" id="login-pass" class="w-full border p-3 rounded" placeholder="Senha">
+        </div>
+
+        <button onclick="loginSystem()" class="w-full bg-blue-700 hover:bg-blue-800 text-white p-3 rounded font-black">
+            Entrar
+        </button>
+
+        <p id="login-error" class="text-red-600 text-sm text-center mt-4 hidden">
+            Usuário ou senha inválidos.
+        </p>
+    </div>
+</div>
+
+<script>
+window.loginSystem = function() {
+    const user = document.getElementById('login-user').value;
+    const pass = document.getElementById('login-pass').value;
+
+    if(user === 'Jocivaldo' && pass === '27101970') {
+        localStorage.setItem('dash_auth','ok');
+        document.getElementById('login-screen').style.display = 'none';
+    } else {
+        document.getElementById('login-error').classList.remove('hidden');
+    }
+}
+
+window.logoutSystem = function() {
+    localStorage.removeItem('dash_auth');
+    location.reload();
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+    if(localStorage.getItem('dash_auth') === 'ok') {
+        document.getElementById('login-screen').style.display = 'none';
+    }
+});
+</script>
+
+
+    <!-- Tela de Carregamento da Nuvem -->
+    <div id="cloud-loader" class="fixed inset-0 bg-[#f8fafc] dark:bg-gray-900 z-[100] flex flex-col items-center justify-center transition-opacity duration-500">
+        <svg class="animate-spin h-16 w-16 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p class="text-xl font-black text-blue-800 dark:text-blue-400 animate-pulse">A Conectar à Nuvem...</p>
+        <p class="text-sm text-gray-500 mt-2">Sincronizando banco de dados</p>
+    </div>
+
+    <!-- Script de Inicialização Rápida do Tema -->
+    <script>
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
         }
     </script>
 
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; transition: background-color 0.3s ease, color 0.3s ease; overflow-x: hidden; }
-        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(30, 58, 138, 0.1); transition: all 0.3s ease; }
-        .dark .glass-card { background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); color: #f1f5f9; }
-        .dark body { background-color: #0f172a; color: #f1f5f9; }
+    <!-- Container de Notificações (Toasts) -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col items-end pointer-events-none"></div>
+
+    <!-- Modal de Resultados da Verificação -->
+    <div id="search-modal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl overflow-hidden transform transition-all border dark:border-gray-700">
+            <div class="bg-blue-700 dark:bg-blue-900 p-4 flex justify-between items-center">
+                <h3 class="text-white font-bold text-lg">Resultados da Verificação</h3>
+                <button onclick="closeSearchModal()" class="text-white font-bold text-2xl hover:text-orange-300 leading-none">&times;</button>
+            </div>
+            <div class="p-4 max-h-[60vh] overflow-y-auto bg-gray-50 dark:bg-gray-900">
+                <div id="search-modal-content" class="flex flex-col gap-3"></div>
+            </div>
+            <div class="p-3 border-t dark:border-gray-700 bg-white dark:bg-gray-800 text-right">
+                <button onclick="closeSearchModal()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded font-bold">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MENU DE NAVEGAÇÃO -->
+    <nav class="bg-blue-700 dark:bg-gray-950 text-white shadow-lg p-4 sticky top-0 z-40 transition-colors">
+        <div class="max-w-[98%] mx-auto flex flex-col xl:flex-row justify-between items-center gap-4 xl:gap-0">
+            <div class="text-center xl:text-left flex items-center gap-3">
+                <div>
+                    <h1 class="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                        DashControler <span class="text-orange-400 text-sm align-top">v1.3</span>
+                        <span title="Conectado à Nuvem" class="flex h-3 w-3 relative ml-1">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                        </span>
+                    </h1>
+                    <p class="text-xs text-blue-200 dark:text-gray-400 font-medium">By Jocivaldo Sousa</p>
+                </div>
+            </div>
+            <div class="space-x-1 flex flex-wrap justify-center items-center gap-y-2">
+                <button onclick="showTab('dashboard')" class="px-3 py-2 rounded hover:bg-blue-800 dark:hover:bg-gray-800 transition-colors font-semibold text-sm">Dashboard</button>
+                <button onclick="showTab('cadastros')" class="px-3 py-2 rounded hover:bg-blue-800 dark:hover:bg-gray-800 transition-colors font-semibold text-sm">Cod/Serviços</button>
+                <button onclick="showTab('auxiliares')" class="px-3 py-2 rounded hover:bg-blue-800 dark:hover:bg-gray-800 transition-colors font-semibold text-sm text-yellow-300">Cad. Auxiliares</button>
+                <button onclick="showTab('lancamentos')" class="px-3 py-2 rounded bg-blue-800 hover:bg-blue-900 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors font-bold text-sm border border-blue-600 dark:border-gray-600">Nova SS</button>
+                <button onclick="showTab('historico')" class="px-3 py-2 rounded hover:bg-blue-800 dark:hover:bg-gray-800 transition-colors font-semibold text-sm">Histórico</button>
+                <button onclick="showTab('relatorios')" class="px-3 py-2 rounded hover:bg-blue-800 dark:hover:bg-gray-800 transition-colors font-bold text-sm text-green-300 border border-transparent hover:border-green-400">Relatórios</button>
+                <div class="inline-block border-l border-blue-500 dark:border-gray-700 pl-3 ml-1 space-x-2 flex items-center">
+                    <button onclick="exportData()" class="bg-orange-500 hover:bg-orange-600 px-3 py-2 rounded text-sm font-bold shadow transition-transform active:scale-95" title="Baixar JSON da Nuvem">Backup</button>
+                    <input type="file" id="importFile" class="hidden" accept=".json" onchange="handleFileSelect(event)">
+                    <button onclick="document.getElementById('importFile').click()" class="bg-green-600 hover:bg-green-500 px-3 py-2 rounded text-sm font-bold shadow transition-transform active:scale-95" title="Enviar JSON para Nuvem">Migrar (Upload)</button>
+                    
+                    <button onclick="toggleTheme()" class="ml-2 bg-gray-800 dark:bg-yellow-500 text-white dark:text-gray-900 w-9 h-9 rounded-full font-black shadow-inner transition-transform active:scale-90 flex items-center justify-center text-lg border border-gray-600 dark:border-yellow-400" title="Alternar Dia/Noite">
+                        <span id="theme-icon">🌙</span></button><button onclick="logoutSystem()" class="ml-2 bg-red-600 hover:bg-red-700 px-3 py-2 rounded text-sm font-bold">Sair</button>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="w-full max-w-[98%] mx-auto p-4 md:p-6 pb-20">
         
-        .screen { display: none; opacity: 0; transition: opacity 0.4s ease-in-out; width: 100%; min-height: 100vh; flex-direction: column; }
-        .screen.active { display: flex !important; opacity: 1; }
-
-        .centered-content { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; width: 100%; padding: 1.5rem; }
-        .btn-nav { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; cursor: pointer; border: none; flex-shrink: 0; }
-        
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .dark .custom-scroll::-webkit-scrollbar-thumb { background: #334155; }
-        
-        /* CORREÇÃO PARA iPHONE/iOS */
-        .dark input[type="date"], .dark input[type="number"], .dark textarea { color-scheme: dark; }
-    </style>
-<style>*, ::before, ::after{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/* ! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com */*,::after,::before{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}::after,::before{--tw-content:''}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;tab-size:4;font-family:ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0;padding:0}legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.fixed{position:fixed}.relative{position:relative}.sticky{position:sticky}.inset-0{inset:0px}.bottom-6{bottom:1.5rem}.right-6{right:1.5rem}.top-0{top:0px}.z-\[100\]{z-index:100}.z-\[200\]{z-index:200}.z-\[60\]{z-index:60}.mx-4{margin-left:1rem;margin-right:1rem}.mx-auto{margin-left:auto;margin-right:auto}.mb-2{margin-bottom:0.5rem}.mb-3{margin-bottom:0.75rem}.mb-4{margin-bottom:1rem}.mb-6{margin-bottom:1.5rem}.ml-1{margin-left:0.25rem}.mt-1{margin-top:0.25rem}.mt-10{margin-top:2.5rem}.mt-2{margin-top:0.5rem}.mt-6{margin-top:1.5rem}.mt-0\.5{margin-top:0.125rem}.block{display:block}.flex{display:flex}.grid{display:grid}.hidden{display:none}.h-12{height:3rem}.h-16{height:4rem}.h-3{height:0.75rem}.h-\[44px\]{height:44px}.h-full{height:100%}.h-10{height:2.5rem}.max-h-48{max-height:12rem}.max-h-60{max-height:15rem}.min-h-\[300px\]{min-height:300px}.min-h-\[400px\]{min-height:400px}.w-12{width:3rem}.w-16{width:4rem}.w-3{width:0.75rem}.w-\[44px\]{width:44px}.w-full{width:100%}.w-10{width:2.5rem}.max-w-4xl{max-width:56rem}.max-w-7xl{max-width:80rem}.max-w-sm{max-width:24rem}.flex-1{flex:1 1 0%}.scale-95{--tw-scale-x:.95;--tw-scale-y:.95;transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.transform{transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.cursor-pointer{cursor:pointer}.resize-none{resize:none}.grid-cols-1{grid-template-columns:repeat(1, minmax(0, 1fr))}.grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}.items-end{align-items:flex-end}.items-center{align-items:center}.justify-center{justify-content:center}.justify-between{justify-content:space-between}.gap-1{gap:0.25rem}.gap-2{gap:0.5rem}.gap-3{gap:0.75rem}.gap-4{gap:1rem}.gap-5{gap:1.25rem}.gap-6{gap:1.5rem}.space-y-3 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(0.75rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(0.75rem * var(--tw-space-y-reverse))}.space-y-4 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1rem * var(--tw-space-y-reverse))}.space-y-6 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1.5rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1.5rem * var(--tw-space-y-reverse))}.divide-y > :not([hidden]) ~ :not([hidden]){--tw-divide-y-reverse:0;border-top-width:calc(1px * calc(1 - var(--tw-divide-y-reverse)));border-bottom-width:calc(1px * var(--tw-divide-y-reverse))}.divide-gray-100 > :not([hidden]) ~ :not([hidden]){--tw-divide-opacity:1;border-color:rgb(243 244 246 / var(--tw-divide-opacity, 1))}.overflow-hidden{overflow:hidden}.overflow-y-auto{overflow-y:auto}.rounded-2xl{border-radius:1rem}.rounded-3xl{border-radius:1.5rem}.rounded-\[2\.5rem\]{border-radius:2.5rem}.rounded-full{border-radius:9999px}.rounded-xl{border-radius:0.75rem}.border{border-width:1px}.border-2{border-width:2px}.border-b-4{border-bottom-width:4px}.border-l-4{border-left-width:4px}.border-r{border-right-width:1px}.border-t-2{border-top-width:2px}.border-t-4{border-top-width:4px}.border-l-8{border-left-width:8px}.border-blue-50{--tw-border-opacity:1;border-color:rgb(239 246 255 / var(--tw-border-opacity, 1))}.border-blue-900{--tw-border-opacity:1;border-color:rgb(30 58 138 / var(--tw-border-opacity, 1))}.border-brandBlue{--tw-border-opacity:1;border-color:rgb(30 58 138 / var(--tw-border-opacity, 1))}.border-brandGreen{--tw-border-opacity:1;border-color:rgb(22 163 74 / var(--tw-border-opacity, 1))}.border-brandOrange{--tw-border-opacity:1;border-color:rgb(249 115 22 / var(--tw-border-opacity, 1))}.border-gray-100{--tw-border-opacity:1;border-color:rgb(243 244 246 / var(--tw-border-opacity, 1))}.border-gray-200{--tw-border-opacity:1;border-color:rgb(229 231 235 / var(--tw-border-opacity, 1))}.border-transparent{border-color:transparent}.border-white\/10{border-color:rgb(255 255 255 / 0.1)}.border-white\/20{border-color:rgb(255 255 255 / 0.2)}.bg-brandSlate{--tw-bg-opacity:1;background-color:rgb(241 245 249 / var(--tw-bg-opacity, 1))}.bg-\[\#1e3a8a\]{--tw-bg-opacity:1;background-color:rgb(30 58 138 / var(--tw-bg-opacity, 1))}.bg-\[\#3b82f6\]{--tw-bg-opacity:1;background-color:rgb(59 130 246 / var(--tw-bg-opacity, 1))}.bg-\[\#f97316\]{--tw-bg-opacity:1;background-color:rgb(249 115 22 / var(--tw-bg-opacity, 1))}.bg-black\/60{background-color:rgb(0 0 0 / 0.6)}.bg-blue-600{--tw-bg-opacity:1;background-color:rgb(37 99 235 / var(--tw-bg-opacity, 1))}.bg-brandBlue{--tw-bg-opacity:1;background-color:rgb(30 58 138 / var(--tw-bg-opacity, 1))}.bg-brandGreen{--tw-bg-opacity:1;background-color:rgb(22 163 74 / var(--tw-bg-opacity, 1))}.bg-brandOrange{--tw-bg-opacity:1;background-color:rgb(249 115 22 / var(--tw-bg-opacity, 1))}.bg-gray-100{--tw-bg-opacity:1;background-color:rgb(243 244 246 / var(--tw-bg-opacity, 1))}.bg-green-100{--tw-bg-opacity:1;background-color:rgb(220 252 231 / var(--tw-bg-opacity, 1))}.bg-orange-50{--tw-bg-opacity:1;background-color:rgb(255 247 237 / var(--tw-bg-opacity, 1))}.bg-red-50{--tw-bg-opacity:1;background-color:rgb(254 242 242 / var(--tw-bg-opacity, 1))}.bg-slate-50{--tw-bg-opacity:1;background-color:rgb(248 250 252 / var(--tw-bg-opacity, 1))}.bg-slate-700{--tw-bg-opacity:1;background-color:rgb(51 65 85 / var(--tw-bg-opacity, 1))}.bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255 / var(--tw-bg-opacity, 1))}.bg-green-50{--tw-bg-opacity:1;background-color:rgb(240 253 244 / var(--tw-bg-opacity, 1))}.p-10{padding:2.5rem}.p-3{padding:0.75rem}.p-4{padding:1rem}.p-5{padding:1.25rem}.p-6{padding:1.5rem}.p-8{padding:2rem}.px-3{padding-left:0.75rem;padding-right:0.75rem}.px-4{padding-left:1rem;padding-right:1rem}.px-8{padding-left:2rem;padding-right:2rem}.py-3{padding-top:0.75rem;padding-bottom:0.75rem}.py-5{padding-top:1.25rem;padding-bottom:1.25rem}.pb-10{padding-bottom:2.5rem}.pr-1{padding-right:0.25rem}.pr-2{padding-right:0.5rem}.pt-4{padding-top:1rem}.text-center{text-align:center}.text-right{text-align:right}.font-mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}.text-2xl{font-size:1.5rem;line-height:2rem}.text-3xl{font-size:1.875rem;line-height:2.25rem}.text-4xl{font-size:2.25rem;line-height:2.5rem}.text-\[10px\]{font-size:10px}.text-\[11px\]{font-size:11px}.text-\[9px\]{font-size:9px}.text-sm{font-size:0.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.text-xs{font-size:0.75rem;line-height:1rem}.text-\[8px\]{font-size:8px}.font-black{font-weight:900}.font-bold{font-weight:700}.uppercase{text-transform:uppercase}.italic{font-style:italic}.leading-tight{line-height:1.25}.tracking-tight{letter-spacing:-0.025em}.tracking-tighter{letter-spacing:-0.05em}.tracking-wider{letter-spacing:0.05em}.tracking-widest{letter-spacing:0.1em}.text-gray-800{--tw-text-opacity:1;color:rgb(31 41 55 / var(--tw-text-opacity, 1))}.text-blue-900{--tw-text-opacity:1;color:rgb(30 58 138 / var(--tw-text-opacity, 1))}.text-brandBlue{--tw-text-opacity:1;color:rgb(30 58 138 / var(--tw-text-opacity, 1))}.text-brandGreen{--tw-text-opacity:1;color:rgb(22 163 74 / var(--tw-text-opacity, 1))}.text-brandOrange{--tw-text-opacity:1;color:rgb(249 115 22 / var(--tw-text-opacity, 1))}.text-gray-400{--tw-text-opacity:1;color:rgb(156 163 175 / var(--tw-text-opacity, 1))}.text-gray-500{--tw-text-opacity:1;color:rgb(107 114 128 / var(--tw-text-opacity, 1))}.text-gray-600{--tw-text-opacity:1;color:rgb(75 85 99 / var(--tw-text-opacity, 1))}.text-red-600{--tw-text-opacity:1;color:rgb(220 38 38 / var(--tw-text-opacity, 1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.text-gray-700{--tw-text-opacity:1;color:rgb(55 65 81 / var(--tw-text-opacity, 1))}.opacity-0{opacity:0}.opacity-50{opacity:0.5}.opacity-60{opacity:0.6}.shadow-2xl{--tw-shadow:0 25px 50px -12px rgb(0 0 0 / 0.25);--tw-shadow-colored:0 25px 50px -12px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-md{--tw-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);--tw-shadow-colored:0 4px 6px -1px var(--tw-shadow-color), 0 2px 4px -2px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-sm{--tw-shadow:0 1px 2px 0 rgb(0 0 0 / 0.05);--tw-shadow-colored:0 1px 2px 0 var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-xl{--tw-shadow:0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);--tw-shadow-colored:0 20px 25px -5px var(--tw-shadow-color), 0 8px 10px -6px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.outline-none{outline:2px solid transparent;outline-offset:2px}.backdrop-blur-sm{--tw-backdrop-blur:blur(4px);-webkit-backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)}.transition-all{transition-property:all;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.transition-colors{transition-property:color, background-color, border-color, fill, stroke, -webkit-text-decoration-color;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke, -webkit-text-decoration-color;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.transition-opacity{transition-property:opacity;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.transition-transform{transition-property:transform;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.hover\:scale-110:hover{--tw-scale-x:1.1;--tw-scale-y:1.1;transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.hover\:scale-105:hover{--tw-scale-x:1.05;--tw-scale-y:1.05;transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.hover\:border-brandBlue:hover{--tw-border-opacity:1;border-color:rgb(30 58 138 / var(--tw-border-opacity, 1))}.hover\:border-brandGreen:hover{--tw-border-opacity:1;border-color:rgb(22 163 74 / var(--tw-border-opacity, 1))}.hover\:bg-blue-800:hover{--tw-bg-opacity:1;background-color:rgb(30 64 175 / var(--tw-bg-opacity, 1))}.hover\:bg-green-700:hover{--tw-bg-opacity:1;background-color:rgb(21 128 61 / var(--tw-bg-opacity, 1))}.hover\:bg-slate-800:hover{--tw-bg-opacity:1;background-color:rgb(30 41 59 / var(--tw-bg-opacity, 1))}.group:hover .group-hover\:scale-110{--tw-scale-x:1.1;--tw-scale-y:1.1;transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.dark\:divide-white\/5:is(.dark *) > :not([hidden]) ~ :not([hidden]){border-color:rgb(255 255 255 / 0.05)}.dark\:border-white\/10:is(.dark *){border-color:rgb(255 255 255 / 0.1)}.dark\:border-white\/5:is(.dark *){border-color:rgb(255 255 255 / 0.05)}.dark\:bg-brandBlueLight:is(.dark *){--tw-bg-opacity:1;background-color:rgb(59 130 246 / var(--tw-bg-opacity, 1))}.dark\:bg-darkBg:is(.dark *){--tw-bg-opacity:1;background-color:rgb(15 23 42 / var(--tw-bg-opacity, 1))}.dark\:bg-darkCard:is(.dark *){--tw-bg-opacity:1;background-color:rgb(30 41 59 / var(--tw-bg-opacity, 1))}.dark\:bg-green-900\/30:is(.dark *){background-color:rgb(20 83 45 / 0.3)}.dark\:bg-orange-950\/20:is(.dark *){background-color:rgb(67 20 7 / 0.2)}.dark\:bg-slate-800:is(.dark *){--tw-bg-opacity:1;background-color:rgb(30 41 59 / var(--tw-bg-opacity, 1))}.dark\:bg-slate-900:is(.dark *){--tw-bg-opacity:1;background-color:rgb(15 23 42 / var(--tw-bg-opacity, 1))}.dark\:bg-slate-900\/50:is(.dark *){background-color:rgb(15 23 42 / 0.5)}.dark\:bg-white\/10:is(.dark *){background-color:rgb(255 255 255 / 0.1)}.dark\:text-brandBlueLight:is(.dark *){--tw-text-opacity:1;color:rgb(59 130 246 / var(--tw-text-opacity, 1))}.dark\:text-gray-300:is(.dark *){--tw-text-opacity:1;color:rgb(209 213 219 / var(--tw-text-opacity, 1))}.dark\:text-gray-400:is(.dark *){--tw-text-opacity:1;color:rgb(156 163 175 / var(--tw-text-opacity, 1))}.dark\:text-white:is(.dark *){--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.dark\:text-white\/80:is(.dark *){color:rgb(255 255 255 / 0.8)}@media (min-width: 640px){.sm\:inline{display:inline}.sm\:grid-cols-3{grid-template-columns:repeat(3, minmax(0, 1fr))}}@media (min-width: 768px){.md\:w-1\/2{width:50%}.md\:grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.md\:flex-row{flex-direction:row}.md\:items-start{align-items:flex-start}.md\:p-8{padding:2rem}.md\:text-left{text-align:left}.md\:text-2xl{font-size:1.5rem;line-height:2rem}.md\:text-4xl{font-size:2.25rem;line-height:2.5rem}}@media (min-width: 1024px){.lg\:col-span-1{grid-column:span 1 / span 1}.lg\:col-span-2{grid-column:span 2 / span 2}.lg\:flex{display:flex}.lg\:grid-cols-3{grid-template-columns:repeat(3, minmax(0, 1fr))}.lg\:grid-cols-4{grid-template-columns:repeat(4, minmax(0, 1fr))}}</style><script>window.EXPORTED_DATA = [{"data":"2026-06-01","valor":497807},{"data":"2026-06-02","valor":497273},{"data":"2026-06-03","valor":978569},{"data":"2026-06-04","valor":434410},{"data":"2026-06-05","valor":926115},{"data":"2026-06-06","valor":775502},{"data":"2026-06-07","valor":777250},{"data":"2026-06-08","valor":793991},{"data":"2026-06-09","valor":773667},{"data":"2026-06-10","valor":697867},{"data":"2026-06-11","valor":637710}]; window.EXPORTED_OCORRENCIAS = [{"data":"2026-06-03","texto":"Ajuste no SETUP do equipamento. Calibration para Max. 0,28m e Channel (type) retangular com 0,250m.\nConserto na linha de recalque entre a EEE-2 e Caixa de Transição-01. EEE desligada, por volta das 16:30 com retorno dia 04/06 às 23:30h."}];</script></head>
-
-<body class="bg-brandSlate text-gray-800 dark">
-
-    <!-- BOTÃO MODO NOITE REPOSICIONADO PARA EVITAR SOBREPOSIÇÃO -->
-    <button id="theme-toggle-btn" onclick="toggleDarkMode()" class="fixed bottom-6 right-6 w-12 h-12 bg-brandBlue text-white dark:bg-white/10 rounded-full shadow-2xl z-[100] flex items-center justify-center text-xl border border-white/20 hover:scale-110 transition-all">
-        <i id="theme-icon-global" class="fa-solid fa-sun"></i>
-    </button>
-
-    <!-- TELA 1: CAPA -->
-    <div id="coverScreen" class="screen relative overflow-y-auto active" style="display: flex;">
-        <div class="centered-content bg-brandBlue dark:bg-darkBg">
-            <div class="relative bg-white dark:bg-darkCard rounded-[2.5rem] shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col md:flex-row border border-white/10">
-                <div class="md:w-1/2 p-10 flex flex-col justify-center items-center bg-slate-50 dark:bg-slate-900/50 border-r border-gray-100 dark:border-white/5 text-center">
-                    <div class="mb-6">
-                        <svg width="100" height="100" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="100" cy="110" r="70" stroke="#1e3a8a" stroke-width="8" stroke-dasharray="300 140"></circle>
-                            <path d="M100 65C100 65 75 95 75 115C75 128.807 86.1929 140 100 140C113.807 140 125 128.807 125 115C125 95 100 65 100 65Z" fill="#3b82f6"></path>
-                        </svg>
+        <!-- ABA: DASHBOARD -->
+        <div id="tab-dashboard" class="hidden-tab">
+            <h2 class="text-2xl font-extrabold mb-6 text-blue-800 dark:text-blue-400 border-b border-gray-200 dark:border-gray-700 pb-2">Visão Geral (Dashboard)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border-t-4 border-blue-500 flex justify-between items-center transform transition-transform hover:-translate-y-1">
+                    <div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Total de SS Lançadas</p>
+                        <span id="count-launches" class="font-black text-4xl text-blue-700 dark:text-blue-400">0</span>
                     </div>
-                    <h2 class="text-brandBlue dark:text-brandBlueLight font-bold text-sm uppercase tracking-widest mb-2">Sistema Operacional</h2>
-                    <p class="text-gray-400 text-[10px] uppercase font-bold italic">By Jocivaldo Sousa | v1.0</p>
                 </div>
-                <div class="md:w-1/2 p-10 flex flex-col justify-center items-center md:items-start text-center md:text-left">
-                    <h1 class="text-2xl md:text-4xl font-black text-brandBlue dark:text-white leading-tight uppercase tracking-tighter">ANÁLISE DA MEDIÇÃO <br><span class="text-brandOrange">DIÁRIA DE VOLUME</span></h1>
-                    <button onclick="navigateTo('indexScreen')" class="mt-10 w-full bg-brandBlue dark:bg-brandBlueLight hover:bg-blue-800 text-white font-black py-5 px-8 rounded-2xl transition-all shadow-xl">ACESSAR SISTEMA</button>
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border-t-4 border-orange-500 flex justify-between items-center transform transition-transform hover:-translate-y-1">
+                    <div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">SS Pendentes</p>
+                        <span id="count-pending" class="font-black text-4xl text-orange-500">0</span>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border-t-4 border-green-500 flex justify-between items-center transform transition-transform hover:-translate-y-1">
+                    <div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">SS Concluídas</p>
+                        <span id="count-completed" class="font-black text-4xl text-green-600 dark:text-green-400">0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-8">
+                <h3 class="text-xl font-bold mb-4 text-blue-800 dark:text-blue-400 border-b border-gray-200 dark:border-gray-700 pb-2">Últimos Lançamentos</h3>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto w-full">
+                    <table class="w-full text-left text-sm border-collapse min-w-[800px]">
+                        <thead>
+                            <tr class="bg-blue-50 dark:bg-gray-700 text-blue-800 dark:text-blue-300 uppercase text-xs tracking-wider border-b-2 border-blue-200 dark:border-gray-600">
+                                <th class="py-3 px-3">Data</th>
+                                <th class="py-3 px-3">SS</th>
+                                <th class="py-3 px-3">Equipa</th>
+                                <th class="py-3 px-3 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-recentes" class="divide-y divide-gray-200 dark:divide-gray-700 text-gray-700 dark:text-gray-300">
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- TELA 2: MENU -->
-    <div id="indexScreen" class="screen relative overflow-y-auto bg-brandSlate dark:bg-darkBg" style="display: none;">
-        <nav class="w-full p-4 flex justify-between items-center bg-white dark:bg-darkCard shadow-md sticky top-0 z-[60]">
-            <button onclick="navigateTo('coverScreen')" class="btn-nav bg-brandBlue text-white" title="Início"><i class="fa-solid fa-house"></i></button>
-            <span class="text-xs font-black uppercase text-brandBlue dark:text-white tracking-widest">Menu Principal <span class="opacity-50 ml-1">v1.0</span></span>
-            <div class="w-[44px]"></div>
-        </nav>
-        <div class="flex-1 flex flex-col items-center justify-center p-6">
-            <div class="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div onclick="navigateTo('dashboardScreen')" class="glass-card p-10 rounded-[2.5rem] text-center cursor-pointer hover:border-brandBlue border-2 border-transparent group transition-all">
-                    <i class="fa-solid fa-chart-line text-4xl text-brandBlue mb-4 group-hover:scale-110 transition-transform"></i>
-                    <h3 class="text-xl font-black text-brandBlue dark:text-white uppercase">Análise de Volume</h3>
-                    <p class="text-xs text-gray-400 mt-2">Dados diários e gráficos de vazão</p>
+        <!-- ABA: CADASTROS (CÓDIGOS E PREÇOS) -->
+        <div id="tab-cadastros" class="hidden-tab">
+            <h2 class="text-2xl font-extrabold mb-6 text-blue-800 dark:text-blue-400 border-b border-gray-200 dark:border-gray-700 pb-2">Gestão de Códigos e Preços</h2>
+            <form onsubmit="addCode(event)" class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-8 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl">
+                <input type="hidden" id="edit-index" value="-1">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Código do Serviço</label>
+                    <input type="text" id="code-id" placeholder="Ex: ESCAV-01" required class="w-full border dark:border-gray-600 p-3 rounded bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 outline-none transition-colors dark:text-white">
                 </div>
-                <div onclick="navigateTo('locationScreen')" class="glass-card p-10 rounded-[2.5rem] text-center cursor-pointer hover:border-brandGreen border-2 border-transparent group transition-all">
-                    <i class="fa-solid fa-map-location-dot text-4xl text-brandGreen mb-4 group-hover:scale-110 transition-transform"></i>
-                    <h3 class="text-xl font-black text-brandGreen uppercase">Localização</h3>
-                    <p class="text-xs text-gray-400 mt-2">Georreferenciamento e rotas GPS</p>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Descrição</label>
+                    <input type="text" id="code-desc" maxlength="60" placeholder="Descrição curta (max 60)" required class="w-full border dark:border-gray-600 p-3 rounded bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 outline-none transition-colors dark:text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Unidade de Medida</label>
+                    <input type="text" id="code-unit" list="unit-options" placeholder="Selecione ou digite a unidade..." required class="w-full border dark:border-gray-600 p-3 rounded bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 outline-none transition-colors dark:text-white">
+                    <datalist id="unit-options"></datalist>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Preço Unitário (R$)</label>
+                    <input type="number" step="0.01" id="code-price" placeholder="0.00" required class="w-full border dark:border-gray-600 p-3 rounded bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 outline-none transition-colors dark:text-white">
+                </div>
+                
+                <button type="submit" class="bg-blue-700 hover:bg-blue-800 text-white p-3 rounded-lg col-span-1 md:col-span-2 font-black shadow-md mt-2 transition-colors">Salvar / Atualizar Código na Nuvem</button>
+            </form>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-x-auto max-w-4xl">
+                <table class="w-full text-left border-collapse">
+                    <thead><tr class="bg-blue-50 dark:bg-gray-700 text-blue-800 dark:text-blue-300 uppercase text-xs tracking-wider border-b-2 border-blue-200 dark:border-gray-600">
+                        <th>Código</th><th>Descrição</th><th>Und</th><th>Preço</th><th>Ações</th>
+                    </tr></thead>
+                    <tbody id="table-codes" class="divide-y divide-gray-100 dark:divide-gray-700 text-sm"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ABA: CADASTROS AUXILIARES -->
+        <div id="tab-auxiliares" class="hidden-tab">
+            <h2 class="text-2xl font-extrabold mb-6 text-blue-800 dark:text-blue-400 border-b border-gray-200 dark:border-gray-700 pb-2">Cadastros Auxiliares</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl">
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                    <h3 class="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Equipes Responsáveis</h3>
+                    <div class="flex gap-2 mb-4">
+                        <input type="text" id="new-team-input" placeholder="Nome da nova equipe..." class="flex-1 border dark:border-gray-600 p-2 rounded bg-gray-50 dark:bg-gray-700 outline-none focus:border-blue-500 dark:text-white">
+                        <button onclick="addTeam()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold transition-colors">Adicionar</button>
+                    </div>
+                    <div class="border dark:border-gray-700 rounded overflow-hidden">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-gray-50 dark:bg-gray-700"><tr><th class="p-2">Nome da Equipa</th><th class="p-2 text-center w-32">Ações</th></tr></thead>
+                            <tbody id="table-teams" class="divide-y divide-gray-100 dark:divide-gray-700"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                    <h3 class="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Endereços Frequentes</h3>
+                    <div class="flex gap-2 mb-4">
+                        <input type="text" id="new-addr-input" placeholder="Novo endereço completo..." class="flex-1 border dark:border-gray-600 p-2 rounded bg-gray-50 dark:bg-gray-700 outline-none focus:border-blue-500 dark:text-white">
+                        <button onclick="addAddress()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold transition-colors">Adicionar</button>
+                    </div>
+                    <div class="border dark:border-gray-700 rounded overflow-hidden">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-gray-50 dark:bg-gray-700"><tr><th class="p-2">Endereço Completo</th><th class="p-2 text-center w-32">Ações</th></tr></thead>
+                            <tbody id="table-addresses" class="divide-y divide-gray-100 dark:divide-gray-700"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- TELA 3: DASHBOARD OPERACIONAL -->
-    <div id="dashboardScreen" class="screen overflow-y-auto bg-brandSlate dark:bg-darkBg pb-10" style="display: none;">
-        <nav class="w-full p-4 flex justify-between items-center bg-white dark:bg-darkCard shadow-md sticky top-0 z-[60] flex-wrap gap-3">
-            <div class="flex gap-2">
-                <button onclick="navigateTo('coverScreen')" class="btn-nav bg-brandBlue text-white" title="Início"><i class="fa-solid fa-house"></i></button>
-                <button onclick="navigateTo('indexScreen')" class="btn-nav bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300" title="Menu"><i class="fa-solid fa-arrow-left"></i></button>
-            </div>
-            
-            
-            
-        </nav>
-
-        <div class="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
-            <header class="bg-brandBlue dark:bg-darkCard text-white p-6 rounded-3xl shadow-xl border-b-4 border-brandOrange">
-                <h1 class="text-xl md:text-2xl font-black uppercase tracking-tight">Medição Diária Pulsar AVFM 6.1</h1>
-                <p class="text-brandOrange font-bold text-xs uppercase mt-1 tracking-widest italic">ETE São Francisco do Conde</p>
-                <div id="periodo-display" class="mt-2 text-[10px] font-black uppercase text-brandOrange italic">01/06/2026 a 11/06/2026</div>
-            </header>
-
-            <div id="filter-bar-section" class="bg-white dark:bg-darkCard p-6 rounded-3xl shadow-sm grid grid-cols-1 md:grid-cols-2 lg:flex items-end gap-4 border border-blue-50 dark:border-white/5">
-                <div class="flex-1">
-                    <label class="block text-[10px] font-black text-brandBlue uppercase mb-2">Início do Período</label>
-                    <input type="date" id="filtro-inicio" class="w-full border-gray-200 dark:bg-slate-900 dark:text-white border p-3 rounded-xl text-sm">
-                </div>
-                <div class="flex-1">
-                    <label class="block text-[10px] font-black text-brandBlue uppercase mb-2">Fim do Período</label>
-                    <input type="date" id="filtro-fim" class="w-full border-gray-200 dark:bg-slate-900 dark:text-white border p-3 rounded-xl text-sm">
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="aplicarFiltro()" class="px-8 bg-brandBlue text-white py-3 rounded-xl font-bold text-sm">Filtrar</button>
-                    <button onclick="limparFiltro()" class="px-8 bg-gray-100 dark:bg-slate-800 text-gray-500 py-3 rounded-xl font-bold text-sm">Limpar</button>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="glass-card p-5 rounded-2xl border-l-4 border-brandBlue">
-                    <p class="text-[9px] font-bold text-gray-400 uppercase">Volume Total (L)</p>
-                    <p id="total" class="text-xl font-black text-brandBlue dark:text-brandBlueLight mt-1">7.790.161</p>
-                </div>
-                <div class="glass-card p-5 rounded-2xl border-l-4 border-brandBlue">
-                    <p class="text-[9px] font-bold text-gray-400 uppercase">Média Diária (L)</p>
-                    <p id="media" class="text-xl font-black text-brandBlue mt-1">708.196</p>
-                </div>
-                <div class="glass-card p-5 rounded-2xl border-l-4 border-brandOrange relative">
-                    <p class="text-[9px] font-bold text-gray-400 uppercase">Pico Máximo (L)</p>
-                    <p id="max" class="text-xl font-black text-brandOrange mt-1">978.569</p>
-                    <p id="data_max" class="text-[10px] text-gray-500 dark:text-gray-400 font-bold mt-1">Em: 03/06</p>
-                </div>
-                <div class="glass-card p-5 rounded-2xl border-l-4 border-blue-900 relative">
-                    <p class="text-[9px] font-bold text-gray-400 uppercase">Volume Mínimo (L)</p>
-                    <p id="min" class="text-xl font-black text-blue-900 dark:text-brandBlueLight mt-1">434.410</p>
-                    <p id="data_min" class="text-[10px] text-gray-500 dark:text-gray-400 font-bold mt-1">Em: 04/06</p>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div class="bg-orange-50 dark:bg-orange-950/20 p-5 rounded-2xl shadow-sm border-l-4 border-brandOrange">
-                    <p class="text-[10px] font-bold text-brandOrange uppercase">Média Vazão (L/s)</p>
-                    <p id="media_ls" class="text-xl md:text-2xl font-black text-brandOrange mt-1">8,20</p>
-                </div>
-                <div class="bg-orange-50 dark:bg-orange-950/20 p-5 rounded-2xl shadow-sm border-l-4 border-brandOrange">
-                    <p class="text-[10px] font-bold text-brandOrange uppercase">Vazão Máxima (L/s)</p>
-                    <p id="max_ls" class="text-xl md:text-2xl font-black text-brandOrange mt-1">11,33</p>
-                </div>
-                <div class="bg-orange-50 dark:bg-orange-950/20 p-5 rounded-2xl shadow-sm border-l-4 border-brandOrange">
-                    <p class="text-[10px] font-bold text-brandOrange uppercase">Vazão Mínima (L/s)</p>
-                    <p id="min_ls" class="text-xl md:text-2xl font-black text-brandOrange mt-1">5,03</p>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-1 space-y-6">
+        <!-- ABA: NOVO LANÇAMENTO -->
+        <div id="tab-lancamentos" class="active-tab">
+            <div class="max-w-4xl mx-auto">
+                <h2 class="text-xl font-extrabold mb-4 text-blue-800 dark:text-blue-400 border-b border-gray-200 dark:border-gray-700 pb-2">Registo de Nova SS</h2>
+                <form id="launch-form" class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    <input type="hidden" id="edit-launch-id" value="">
+                    <div>
+                        <label class="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-0.5">Data</label>
+                        <input type="date" id="launch-date" required class="w-full border dark:border-gray-600 p-1.5 rounded bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 outline-none dark:text-white dark:[color-scheme:dark]">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-0.5">Equipa Responsável</label>
+                        <select id="launch-team" required class="w-full border dark:border-gray-600 p-1.5 rounded bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 outline-none dark:text-white">
+                            <option value="">Selecione uma equipa...</option>
+                        </select>
+                    </div>
                     
+                    <div class="col-span-1 md:col-span-2 flex flex-col md:flex-row gap-3">
+                        <div class="flex-1">
+                            <label class="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-0.5">Número da SS</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="launch-ss" placeholder="Ex: 123456" required class="border dark:border-gray-600 p-1.5 rounded flex-1 bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 outline-none dark:text-white">
+                                <button type="button" onclick="searchBy('ss')" class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded font-bold shadow-sm transition-colors text-xs">Verificar SS</button>
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-0.5">Fiscalização</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="launch-fiscal" placeholder="Nome do Fiscal" required class="border dark:border-gray-600 p-1.5 rounded flex-1 bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 outline-none dark:text-white">
+                                <button type="button" onclick="searchBy('fiscal')" class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded font-bold shadow-sm transition-colors text-xs">Verificar Fiscal</button>
+                            </div>
+                        </div>
+                    </div>
 
+                    <div class="col-span-1 md:col-span-2">
+                        <label class="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-0.5">Endereço Completo</label>
+                        <select id="launch-addr" required class="w-full border dark:border-gray-600 p-1.5 rounded bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 outline-none dark:text-white">
+                            <option value="">Selecione um endereço...</option>
+                        </select>
+                    </div>
                     
+                    <div class="col-span-1 md:col-span-2 mt-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                        <div class="bg-blue-50 dark:bg-gray-700/50 p-3 rounded-lg border border-blue-100 dark:border-gray-600">
+                            <label class="block text-[11px] font-black mb-1 text-blue-800 dark:text-blue-300 uppercase tracking-wide">1. Escolha o Código / Serviço</label>
+                            
+                            <div class="flex gap-2 mb-2">
+                                <input type="text" id="search-code" oninput="filterCodes()" placeholder="Digite a descrição ou código..." class="flex-1 border dark:border-gray-600 p-1.5 rounded bg-white dark:bg-gray-700 focus:border-blue-500 outline-none shadow-sm dark:text-white">
+                                <button type="button" onclick="filterCodes()" class="bg-blue-700 hover:bg-blue-800 text-white px-3 py-1.5 rounded font-bold shadow-sm transition-colors flex items-center gap-1 text-xs">
+                                    Pesquisar
+                                </button>
+                            </div>
 
-                    <div class="bg-white dark:bg-darkCard p-6 rounded-3xl shadow-sm border border-gray-100">
-                        <h3 class="font-bold text-brandBlue uppercase text-[10px] mb-4">Histórico Recente</h3>
-                        <div class="max-h-60 overflow-y-auto custom-scroll pr-1">
-                            <table class="w-full text-[10px]">
-                                <tbody id="tabela" class="divide-y divide-gray-100 dark:divide-white/5"><tr class="dark:text-white/80 transition-colors"><td class="p-3 font-bold text-xs">01/06</td><td class="p-3 text-right font-black text-xs">497.807 L</td></tr><tr class="dark:text-white/80 transition-colors"><td class="p-3 font-bold text-xs">02/06</td><td class="p-3 text-right font-black text-xs">497.273 L</td></tr><tr class="dark:text-white/80 transition-colors"><td class="p-3 font-bold text-xs">03/06</td><td class="p-3 text-right font-black text-xs">978.569 L</td></tr><tr class="dark:text-white/80 transition-colors"><td class="p-3 font-bold text-xs">04/06</td><td class="p-3 text-right font-black text-xs">434.410 L</td></tr><tr class="dark:text-white/80 transition-colors"><td class="p-3 font-bold text-xs">05/06</td><td class="p-3 text-right font-black text-xs">926.115 L</td></tr><tr class="dark:text-white/80 transition-colors"><td class="p-3 font-bold text-xs">06/06</td><td class="p-3 text-right font-black text-xs">775.502 L</td></tr><tr class="dark:text-white/80 transition-colors"><td class="p-3 font-bold text-xs">07/06</td><td class="p-3 text-right font-black text-xs">777.250 L</td></tr><tr class="dark:text-white/80 transition-colors"><td class="p-3 font-bold text-xs">08/06</td><td class="p-3 text-right font-black text-xs">793.991 L</td></tr><tr class="dark:text-white/80 transition-colors"><td class="p-3 font-bold text-xs">09/06</td><td class="p-3 text-right font-black text-xs">773.667 L</td></tr><tr class="dark:text-white/80 transition-colors"><td class="p-3 font-bold text-xs">10/06</td><td class="p-3 text-right font-black text-xs">697.867 L</td></tr><tr class="dark:text-white/80 transition-colors"><td class="p-3 font-bold text-xs">11/06</td><td class="p-3 text-right font-black text-xs">637.710 L</td></tr></tbody>
+                            <select id="launch-code" onchange="onCodeSelect()" class="w-full border dark:border-gray-600 p-1.5 rounded bg-white dark:bg-gray-700 focus:border-blue-500 outline-none shadow-sm font-medium text-blue-900 dark:text-blue-300"></select>
+                            
+                            <label class="block text-[11px] font-black mt-3 mb-1 text-blue-800 dark:text-blue-300 uppercase tracking-wide">2. Informe as Dimensões / Quantidade</label>
+                            <div id="dyn-fields" class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3"></div>
+                            
+                            <button type="button" id="btn-add-item" onclick="addItemToLaunch()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-black shadow transition-transform active:scale-[0.99] flex justify-center items-center gap-2 text-sm">
+                                Adicionar Item à Lista
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="item-list-container" class="col-span-1 md:col-span-2 mt-1">
+                        <h3 class="font-bold text-gray-700 dark:text-gray-300 text-[11px] uppercase mb-1">Itens Inseridos na SS:</h3>
+                        <div class="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg overflow-hidden shadow-sm">
+                            <table class="w-full text-xs text-left">
+                                <thead><tr class="bg-gray-100 dark:bg-gray-700 border-b dark:border-gray-600"><th class="dark:text-gray-200">Código</th><th class="dark:text-gray-200">Descrição</th><th class="dark:text-gray-200">Quantidade</th><th class="text-center w-[130px] dark:text-gray-200">Ações</th></tr></thead>
+                                <tbody id="items-in-launch" class="divide-y divide-gray-100 dark:divide-gray-700">
+                                    <tr id="empty-row"><td colspan="4" class="text-center text-gray-400 italic py-2">Nenhum item adicionado ainda.</td></tr>
+                                </tbody>
                             </table>
                         </div>
                     </div>
-                </div>
 
-                <div class="lg:col-span-2">
-                    <div class="bg-white dark:bg-darkCard p-6 rounded-3xl shadow-sm border border-gray-100 h-full min-h-[400px] flex flex-col">
-                        <h3 class="font-bold text-brandBlue uppercase text-[10px] mb-2 text-center italic tracking-widest">Perfil Volumétrico Diário</h3>
-                        
-                        <div class="flex justify-center gap-4 mb-4 flex-wrap">
-                            <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#f97316]"></span><span class="text-[9px] font-bold text-gray-500 uppercase">Máximo</span></div>
-                            <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#1e3a8a]"></span><span class="text-[9px] font-bold text-gray-500 uppercase">Mínimo</span></div>
-                            <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#3b82f6]"></span><span class="text-[9px] font-bold text-gray-500 uppercase">Normal</span></div>
+                    <div class="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-3 mt-1">
+                        <div class="md:col-span-2">
+                            <label class="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-0.5">Observações (opcional)</label>
+                            <input type="text" id="launch-obs" maxlength="35" placeholder="Max 35 caracteres" class="w-full border dark:border-gray-600 p-1.5 rounded bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 outline-none dark:text-white">
                         </div>
-
-                        <div class="relative flex-1 min-h-[300px]"><canvas id="grafico" style="box-sizing: border-box; display: block; height: 617.5px; width: 752.7px;" width="752" height="617"></canvas></div>
-
-                        <div id="painel-ocorrencias" class="mt-6 border-t-2 border-gray-100 dark:border-white/5 pt-4 transition-all">
-                            <h4 class="text-[10px] font-bold text-brandOrange uppercase tracking-widest mb-3 flex items-center gap-2">
-                                <i class="fa-solid fa-triangle-exclamation"></i> Ocorrências Registradas no Período
-                            </h4>
-                            <div id="lista-ocorrencias" class="space-y-3 max-h-48 overflow-y-auto custom-scroll pr-2">
-                    <div class="bg-orange-50 dark:bg-orange-950/20 p-4 rounded-2xl border-l-4 border-brandOrange">
-                        <span class="text-[10px] font-black text-brandOrange uppercase tracking-widest">03/06</span>
-                        <p class="text-sm text-gray-700 dark:text-gray-300 mt-1">Ajuste no SETUP do equipamento. Calibration para Max. 0,28m e Channel (type) retangular com 0,250m.
-Conserto na linha de recalque entre a EEE-2 e Caixa de Transição-01. EEE desligada, por volta das 16:30 com retorno dia 04/06 às 23:30h.</p>
-                    </div>
-                </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-0.5">Status Final</label>
+                            <select id="launch-status" class="w-full border dark:border-gray-600 p-1.5 rounded bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 outline-none font-bold text-gray-700 dark:text-gray-200">
+                                <option value="Pendente" class="text-orange-600 dark:text-orange-400">⚠️ Pendente</option>
+                                <option value="Concluído" class="text-green-600 dark:text-green-400">✅ Concluído</option>
+                            </select>
                         </div>
-
                     </div>
+                </form>
+                
+                <div class="mt-4 flex flex-col md:flex-row gap-3">
+                    <button type="button" onclick="clearLaunchForm()" class="md:w-1/4 bg-gray-400 hover:bg-gray-500 text-white p-2 rounded font-bold shadow text-sm">Limpar Formulário</button>
+                    <button type="button" id="btn-save-launch" onclick="saveFullLaunch()" class="md:w-3/4 bg-green-600 hover:bg-green-700 text-white p-2 rounded font-black text-base shadow-lg">💾 GRAVAR NA NUVEM</button>
                 </div>
             </div>
-
-            <footer class="bg-white dark:bg-darkCard p-6 rounded-3xl shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 border-t-4 border-brandBlue transition-colors">
-                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic">Operação ETE São Francisco do Conde</p>
-                <span class="text-brandBlue font-black italic text-xs uppercase">By Jocivaldo Sousa | v1.0</span>
-            </footer>
         </div>
-    </div>
 
-    <!-- TELA 4: LOCALIZAÇÃO -->
-    <div id="locationScreen" class="screen overflow-y-auto bg-brandSlate dark:bg-darkBg pb-10" style="display: none;">
-        <nav class="w-full p-4 flex justify-between items-center bg-white dark:bg-darkCard shadow-md sticky top-0 z-[60]">
-            <div class="flex gap-2">
-                <button onclick="navigateTo('coverScreen')" class="btn-nav bg-brandBlue text-white" title="Início"><i class="fa-solid fa-house"></i></button>
-                <button onclick="navigateTo('indexScreen')" class="btn-nav bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300" title="Menu"><i class="fa-solid fa-arrow-left"></i></button>
+        <!-- ABA: HISTÓRICO -->
+        <div id="tab-historico" class="hidden-tab">
+            <h2 class="text-2xl font-extrabold mb-6 text-blue-800 dark:text-blue-400 border-b border-gray-200 dark:border-gray-700 pb-2">Pesquisa e Histórico</h2>
+            
+            <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6 flex flex-col md:flex-row gap-3 w-full">
+                <input type="text" id="search-hist" oninput="updateHistoryTable()" placeholder="Digite data, SS, fiscal, código, status..." class="flex-1 border dark:border-gray-600 p-3 rounded-lg outline-none focus:border-blue-500 bg-gray-50 dark:bg-gray-700 dark:text-white focus:bg-white">
+                <button onclick="clearHistoryFilter()" class="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-bold shadow whitespace-nowrap">Limpar Busca</button>
             </div>
-            <span class="text-xs font-black uppercase text-brandGreen tracking-widest">Localização Operacional</span>
-            <div class="w-[44px]"></div>
-        </nav>
-        <div class="max-w-7xl mx-auto p-4 md:p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="equipmentList">
-                <div onclick="window.open('https://www.google.com/maps/dir/?api=1&amp;destination=-12.613218,-38.692943&amp;travelmode=driving&amp;layer=s','_blank')" class="glass-card p-6 rounded-3xl border-l-8 border-brandGreen hover:scale-105 cursor-pointer flex justify-between items-center transition-all">
-                    <div>
-                        <p class="text-[9px] font-black text-brandGreen uppercase opacity-60 tracking-widest">ETE</p>
-                        <h4 class="text-sm font-black dark:text-white uppercase mt-0.5">ETE-SFC</h4>
-                        <p class="text-[8px] text-gray-400 font-mono mt-1">-12.613218,-38.692943</p>
-                    </div>
-                    <div class="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center text-brandGreen transition-colors">
-                        <i class="fa-solid fa-location-arrow"></i>
-                    </div>
-                </div>
             
-                <div onclick="window.open('https://www.google.com/maps/dir/?api=1&amp;destination=-12.627059,-38.675835&amp;travelmode=driving&amp;layer=s','_blank')" class="glass-card p-6 rounded-3xl border-l-8 border-brandGreen hover:scale-105 cursor-pointer flex justify-between items-center transition-all">
-                    <div>
-                        <p class="text-[9px] font-black text-brandGreen uppercase opacity-60 tracking-widest">Elevatória</p>
-                        <h4 class="text-sm font-black dark:text-white uppercase mt-0.5">EEE-01</h4>
-                        <p class="text-[8px] text-gray-400 font-mono mt-1">-12.627059,-38.675835</p>
-                    </div>
-                    <div class="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center text-brandGreen transition-colors">
-                        <i class="fa-solid fa-location-arrow"></i>
-                    </div>
-                </div>
-            
-                <div onclick="window.open('https://www.google.com/maps/dir/?api=1&amp;destination=-12.626911,-38.682503&amp;travelmode=driving&amp;layer=s','_blank')" class="glass-card p-6 rounded-3xl border-l-8 border-brandGreen hover:scale-105 cursor-pointer flex justify-between items-center transition-all">
-                    <div>
-                        <p class="text-[9px] font-black text-brandGreen uppercase opacity-60 tracking-widest">Elevatória</p>
-                        <h4 class="text-sm font-black dark:text-white uppercase mt-0.5">EEE-02</h4>
-                        <p class="text-[8px] text-gray-400 font-mono mt-1">-12.626911,-38.682503</p>
-                    </div>
-                    <div class="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center text-brandGreen transition-colors">
-                        <i class="fa-solid fa-location-arrow"></i>
-                    </div>
-                </div>
-            
-                <div onclick="window.open('https://www.google.com/maps/dir/?api=1&amp;destination=-12.622945,-38.691262&amp;travelmode=driving&amp;layer=s','_blank')" class="glass-card p-6 rounded-3xl border-l-8 border-brandGreen hover:scale-105 cursor-pointer flex justify-between items-center transition-all">
-                    <div>
-                        <p class="text-[9px] font-black text-brandGreen uppercase opacity-60 tracking-widest">Elevatória</p>
-                        <h4 class="text-sm font-black dark:text-white uppercase mt-0.5">EEE-03</h4>
-                        <p class="text-[8px] text-gray-400 font-mono mt-1">-12.622945,-38.691262</p>
-                    </div>
-                    <div class="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center text-brandGreen transition-colors">
-                        <i class="fa-solid fa-location-arrow"></i>
-                    </div>
-                </div>
-            
-                <div onclick="window.open('https://www.google.com/maps/dir/?api=1&amp;destination=-12.614003,-38.695577&amp;travelmode=driving&amp;layer=s','_blank')" class="glass-card p-6 rounded-3xl border-l-8 border-brandGreen hover:scale-105 cursor-pointer flex justify-between items-center transition-all">
-                    <div>
-                        <p class="text-[9px] font-black text-brandGreen uppercase opacity-60 tracking-widest">Elevatória</p>
-                        <h4 class="text-sm font-black dark:text-white uppercase mt-0.5">EEE-04</h4>
-                        <p class="text-[8px] text-gray-400 font-mono mt-1">-12.614003,-38.695577</p>
-                    </div>
-                    <div class="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center text-brandGreen transition-colors">
-                        <i class="fa-solid fa-location-arrow"></i>
-                    </div>
-                </div>
-            
-                <div onclick="window.open('https://www.google.com/maps/dir/?api=1&amp;destination=-12.616133,-38.665161&amp;travelmode=driving&amp;layer=s','_blank')" class="glass-card p-6 rounded-3xl border-l-8 border-brandGreen hover:scale-105 cursor-pointer flex justify-between items-center transition-all">
-                    <div>
-                        <p class="text-[9px] font-black text-brandGreen uppercase opacity-60 tracking-widest">Elevatória</p>
-                        <h4 class="text-sm font-black dark:text-white uppercase mt-0.5">EEE-05</h4>
-                        <p class="text-[8px] text-gray-400 font-mono mt-1">-12.616133,-38.665161</p>
-                    </div>
-                    <div class="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center text-brandGreen transition-colors">
-                        <i class="fa-solid fa-location-arrow"></i>
-                    </div>
-                </div>
-            
-                <div onclick="window.open('https://www.google.com/maps/dir/?api=1&amp;destination=-12.618434,-38.668184&amp;travelmode=driving&amp;layer=s','_blank')" class="glass-card p-6 rounded-3xl border-l-8 border-brandGreen hover:scale-105 cursor-pointer flex justify-between items-center transition-all">
-                    <div>
-                        <p class="text-[9px] font-black text-brandGreen uppercase opacity-60 tracking-widest">Elevatória</p>
-                        <h4 class="text-sm font-black dark:text-white uppercase mt-0.5">EEE-06</h4>
-                        <p class="text-[8px] text-gray-400 font-mono mt-1">-12.618434,-38.668184</p>
-                    </div>
-                    <div class="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center text-brandGreen transition-colors">
-                        <i class="fa-solid fa-location-arrow"></i>
-                    </div>
-                </div>
-            
-                <div onclick="window.open('https://www.google.com/maps/dir/?api=1&amp;destination=-12.601390,-38.682163&amp;travelmode=driving&amp;layer=s','_blank')" class="glass-card p-6 rounded-3xl border-l-8 border-brandGreen hover:scale-105 cursor-pointer flex justify-between items-center transition-all">
-                    <div>
-                        <p class="text-[9px] font-black text-brandGreen uppercase opacity-60 tracking-widest">Elevatória</p>
-                        <h4 class="text-sm font-black dark:text-white uppercase mt-0.5">EEE-07</h4>
-                        <p class="text-[8px] text-gray-400 font-mono mt-1">-12.601390,-38.682163</p>
-                    </div>
-                    <div class="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center text-brandGreen transition-colors">
-                        <i class="fa-solid fa-location-arrow"></i>
-                    </div>
-                </div>
-            
-                <div onclick="window.open('https://www.google.com/maps/dir/?api=1&amp;destination=-12.606339,-38.682420&amp;travelmode=driving&amp;layer=s','_blank')" class="glass-card p-6 rounded-3xl border-l-8 border-brandGreen hover:scale-105 cursor-pointer flex justify-between items-center transition-all">
-                    <div>
-                        <p class="text-[9px] font-black text-brandGreen uppercase opacity-60 tracking-widest">Elevatória</p>
-                        <h4 class="text-sm font-black dark:text-white uppercase mt-0.5">EEE-08</h4>
-                        <p class="text-[8px] text-gray-400 font-mono mt-1">-12.606339,-38.682420</p>
-                    </div>
-                    <div class="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center text-brandGreen transition-colors">
-                        <i class="fa-solid fa-location-arrow"></i>
-                    </div>
-                </div>
-            
-                <div onclick="window.open('https://www.google.com/maps/dir/?api=1&amp;destination=-12.638088,-38.543197&amp;travelmode=driving&amp;layer=s','_blank')" class="glass-card p-6 rounded-3xl border-l-8 border-brandGreen hover:scale-105 cursor-pointer flex justify-between items-center transition-all">
-                    <div>
-                        <p class="text-[9px] font-black text-brandGreen uppercase opacity-60 tracking-widest">Elevatória</p>
-                        <h4 class="text-sm font-black dark:text-white uppercase mt-0.5">EEE-8.3</h4>
-                        <p class="text-[8px] text-gray-400 font-mono mt-1">-12.638088,-38.543197</p>
-                    </div>
-                    <div class="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center text-brandGreen transition-colors">
-                        <i class="fa-solid fa-location-arrow"></i>
-                    </div>
-                </div>
-            
-                <div onclick="window.open('https://www.google.com/maps/dir/?api=1&amp;destination=-12.611839,-38.692216&amp;travelmode=driving&amp;layer=s','_blank')" class="glass-card p-6 rounded-3xl border-l-8 border-brandGreen hover:scale-105 cursor-pointer flex justify-between items-center transition-all">
-                    <div>
-                        <p class="text-[9px] font-black text-brandGreen uppercase opacity-60 tracking-widest">Elevatória</p>
-                        <h4 class="text-sm font-black dark:text-white uppercase mt-0.5">EEE-09</h4>
-                        <p class="text-[8px] text-gray-400 font-mono mt-1">-12.611839,-38.692216</p>
-                    </div>
-                    <div class="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center text-brandGreen transition-colors">
-                        <i class="fa-solid fa-location-arrow"></i>
-                    </div>
-                </div>
-            
-                <div onclick="window.open('https://www.google.com/maps/dir/?api=1&amp;destination=-12.622075,-38.686838&amp;travelmode=driving&amp;layer=s','_blank')" class="glass-card p-6 rounded-3xl border-l-8 border-brandGreen hover:scale-105 cursor-pointer flex justify-between items-center transition-all">
-                    <div>
-                        <p class="text-[9px] font-black text-brandGreen uppercase opacity-60 tracking-widest">Caixa</p>
-                        <h4 class="text-sm font-black dark:text-white uppercase mt-0.5">CAIXA 01</h4>
-                        <p class="text-[8px] text-gray-400 font-mono mt-1">-12.622075,-38.686838</p>
-                    </div>
-                    <div class="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center text-brandGreen transition-colors">
-                        <i class="fa-solid fa-location-arrow"></i>
-                    </div>
-                </div>
-            
-                <div onclick="window.open('https://www.google.com/maps/dir/?api=1&amp;destination=-12.618479,-38.690726&amp;travelmode=driving&amp;layer=s','_blank')" class="glass-card p-6 rounded-3xl border-l-8 border-brandGreen hover:scale-105 cursor-pointer flex justify-between items-center transition-all">
-                    <div>
-                        <p class="text-[9px] font-black text-brandGreen uppercase opacity-60 tracking-widest">Caixa</p>
-                        <h4 class="text-sm font-black dark:text-white uppercase mt-0.5">CAIXA 02</h4>
-                        <p class="text-[8px] text-gray-400 font-mono mt-1">-12.618479,-38.690726</p>
-                    </div>
-                    <div class="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center text-brandGreen transition-colors">
-                        <i class="fa-solid fa-location-arrow"></i>
-                    </div>
-                </div>
-            
-                <div onclick="window.open('https://www.google.com/maps/dir/?api=1&amp;destination=-12.721435,-38.602775&amp;travelmode=driving&amp;layer=s','_blank')" class="glass-card p-6 rounded-3xl border-l-8 border-brandGreen hover:scale-105 cursor-pointer flex justify-between items-center transition-all">
-                    <div>
-                        <p class="text-[9px] font-black text-brandGreen uppercase opacity-60 tracking-widest">DAFA</p>
-                        <h4 class="text-sm font-black dark:text-white uppercase mt-0.5">DAFA SANTO ESTÊVÃO</h4>
-                        <p class="text-[8px] text-gray-400 font-mono mt-1">-12.721435,-38.602775</p>
-                    </div>
-                    <div class="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center text-brandGreen transition-colors">
-                        <i class="fa-solid fa-location-arrow"></i>
-                    </div>
-                </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto w-full">
+                <table class="w-full text-left text-sm border-collapse min-w-[1300px]">
+                    <thead>
+                        <tr class="bg-blue-50 dark:bg-gray-700 text-blue-800 dark:text-blue-300 uppercase text-xs tracking-wider border-b-2 border-blue-200 dark:border-gray-600">
+                            <th class="py-3 px-3 w-[80px]">Data</th>
+                            <th class="py-3 px-3 w-[100px]">Equipa</th>
+                            <th class="py-3 px-3 w-[100px]">SS</th>
+                            <th class="py-3 px-3 w-[100px]">Fiscal</th>
+                            <th class="py-3 px-3 w-[180px]">Endereço</th>
+                            <th class="py-3 px-3 w-[100px]">Código</th>
+                            <th class="py-3 px-3 min-w-[300px]">Descrição</th>
+                            <th class="py-3 px-3 w-[80px] text-center">Quant</th>
+                            <th class="py-3 px-3 w-[150px]">Obs</th>
+                            <th class="py-3 px-3 w-[100px] text-center">Status</th>
+                            <th class="py-3 px-3 w-[140px] text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-launches" class="divide-y divide-gray-200 dark:divide-gray-700 text-gray-700 dark:text-gray-300"></tbody>
+                </table>
             </div>
-        <footer class="mt-10 max-w-7xl mx-auto p-8 bg-white dark:bg-darkCard rounded-3xl text-center border-t-4 border-brandGreen transition-colors">
-            <span class="text-brandGreen font-black italic text-xs uppercase tracking-widest">By Jocivaldo Sousa | v1.0</span>
-        </footer>
-    </div>
-
-    <!-- MODAL DE MENSAGENS -->
-    <div id="customModal" class="fixed inset-0 z-[200] hidden items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity opacity-0">
-        <div class="bg-white dark:bg-darkCard p-8 rounded-3xl shadow-2xl transform transition-transform scale-95 max-w-sm w-full border border-gray-100 dark:border-white/10 text-center mx-4">
-            <div id="modalIcon" class="w-16 h-16 bg-green-100 dark:bg-green-900/30 text-brandGreen rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
-                <i class="fa-solid fa-check"></i>
-            </div>
-            <h3 id="modalTitle" class="text-xl font-black text-brandBlue dark:text-white uppercase mb-2">Sucesso</h3>
-            <p id="modalMessage" class="text-sm text-gray-500 dark:text-gray-400 mb-6">Operação realizada.</p>
-            <button onclick="closeModal()" class="w-full bg-brandBlue text-white font-bold py-3 rounded-xl hover:bg-blue-800 transition-colors shadow-md">OK</button>
         </div>
-    </div>
 
-    <script>
-        const equipamentos = [
-            { nome: "ETE-SFC", coord: "-12.613218,-38.692943", tipo: "ETE" },
-            { nome: "EEE-01", coord: "-12.627059,-38.675835", tipo: "Elevatória" },
-            { nome: "EEE-02", coord: "-12.626911,-38.682503", tipo: "Elevatória" },
-            { nome: "EEE-03", coord: "-12.622945,-38.691262", tipo: "Elevatória" },
-            { nome: "EEE-04", coord: "-12.614003,-38.695577", tipo: "Elevatória" },
-            { nome: "EEE-05", coord: "-12.616133,-38.665161", tipo: "Elevatória" },
-            { nome: "EEE-06", coord: "-12.618434,-38.668184", tipo: "Elevatória" },
-            { nome: "EEE-07", coord: "-12.601390,-38.682163", tipo: "Elevatória" },
-            { nome: "EEE-08", coord: "-12.606339,-38.682420", tipo: "Elevatória" },
-            { nome: "EEE-8.3", coord: "-12.638088,-38.543197", tipo: "Elevatória" },
-            { nome: "EEE-09", coord: "-12.611839,-38.692216", tipo: "Elevatória" },
-            { nome: "CAIXA 01", coord: "-12.622075,-38.686838", tipo: "Caixa" },
-            { nome: "CAIXA 02", coord: "-12.618479,-38.690726", tipo: "Caixa" },
-            { nome: "DAFA SANTO ESTÊVÃO", coord: "-12.721435,-38.602775", tipo: "DAFA" }
-        ];
-
-        let dados = [];
-        let ocorrencias = [];
-        window.myChart = null;
-
-        function showModal(title, message, isError = false) {
-            document.getElementById('modalTitle').innerText = title;
-            document.getElementById('modalMessage').innerText = message;
+        <!-- ABA: RELATÓRIOS -->
+        <div id="tab-relatorios" class="hidden-tab">
+            <h2 class="text-2xl font-extrabold mb-6 text-blue-800 dark:text-blue-400 border-b border-gray-200 dark:border-gray-700 pb-2">Relatórios do Sistema</h2>
             
-            const iconEl = document.getElementById('modalIcon');
-            if (isError) {
-                iconEl.className = "w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl";
-                iconEl.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
+                <div class="col-span-1 md:col-span-2 lg:col-span-2">
+                    <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Tipo de Relatório</label>
+                    <select id="rel-tipo" class="w-full border dark:border-gray-600 p-2 rounded bg-gray-50 dark:bg-gray-700 focus:border-blue-500 outline-none dark:text-white font-semibold">
+                        <option value="sintetico">Sintético (Agrupado por Endereço)</option>
+                        <option value="analitico">Analítico (Detalhado - A4 Paisagem)</option>
+                    </select>
+                </div>
+                <div class="col-span-1 md:col-span-1 lg:col-span-2">
+                    <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Data Inicial</label>
+                    <input type="date" id="rel-data-ini" class="w-full border dark:border-gray-600 p-2 rounded bg-gray-50 dark:bg-gray-700 focus:border-blue-500 outline-none dark:text-white dark:[color-scheme:dark]">
+                </div>
+                <div class="col-span-1 md:col-span-1 lg:col-span-2">
+                    <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Data Final</label>
+                    <input type="date" id="rel-data-fim" class="w-full border dark:border-gray-600 p-2 rounded bg-gray-50 dark:bg-gray-700 focus:border-blue-500 outline-none dark:text-white dark:[color-scheme:dark]">
+                </div>
+                <div class="col-span-1 md:col-span-1 lg:col-span-2">
+                    <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Equipe</label>
+                    <select id="rel-equipe" class="w-full border dark:border-gray-600 p-2 rounded bg-gray-50 dark:bg-gray-700 focus:border-blue-500 outline-none dark:text-white">
+                        <option value="">Todas as Equipes...</option>
+                    </select>
+                </div>
+                <div class="col-span-1 md:col-span-1 lg:col-span-2">
+                    <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Endereço</label>
+                    <select id="rel-addr" class="w-full border dark:border-gray-600 p-2 rounded bg-gray-50 dark:bg-gray-700 focus:border-blue-500 outline-none dark:text-white">
+                        <option value="">Todos os Endereços...</option>
+                    </select>
+                </div>
+                <div class="col-span-1 md:col-span-2 lg:col-span-2">
+                    <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Código / Descrição</label>
+                    <input type="text" id="rel-code" placeholder="Filtrar por Código/Desc..." class="w-full border dark:border-gray-600 p-2 rounded bg-gray-50 dark:bg-gray-700 focus:border-blue-500 outline-none dark:text-white">
+                </div>
+                <div class="col-span-1 md:col-span-2 lg:col-span-6 flex gap-2 w-full mt-2">
+                    <button onclick="gerarRelatorio(false)" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded font-bold shadow flex-1 flex justify-center items-center gap-2 text-sm">
+                        👁️ Visualizar Relatório
+                    </button>
+                    <button onclick="gerarRelatorio(true)" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded font-bold shadow flex-1 flex justify-center items-center gap-2 text-sm">
+                        📄 Baixar PDF
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-gray-200 dark:bg-gray-800 p-4 md:p-8 rounded-xl shadow-inner overflow-auto flex justify-center">
+                <div id="report-print-area" class="bg-white text-black p-8 shadow-md w-full min-h-[297mm]">
+                    <div class="text-center text-gray-400 italic mt-20 flex flex-col items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Preencha o período acima e clique em "Visualizar" para gerar o relatório.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- MOTOR FIREBASE E LÓGICA DA APLICAÇÃO -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        // Configuração Firebase Exclusiva do Usuário
+        const firebaseConfig = {
+            apiKey: "AIzaSyDaLvrA9WyZSx5hbFoZjnw0lPwuRaBZclM",
+            authDomain: "dashcontroler.firebaseapp.com",
+            projectId: "dashcontroler",
+            storageBucket: "dashcontroler.firebasestorage.app",
+            messagingSenderId: "342390953568",
+            appId: "1:342390953568:web:4f68dd60e2104f20f21505"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const firestore = getFirestore(app);
+
+        // Banco de Dados em Memória (Sincronizado com a nuvem)
+        window.db = { codes: [], launches: [], teams: [], addresses: [] };
+
+        // Variáveis de Controlo de Carregamento
+        let loaded = { aux: false, codes: false, launches: false };
+        function checkCloudReady() {
+            if (loaded.aux && loaded.codes && loaded.launches) {
+                const loader = document.getElementById('cloud-loader');
+                if (loader) {
+                    loader.style.opacity = '0';
+                    setTimeout(() => loader.remove(), 500);
+                }
+            }
+        }
+
+        // ==========================================
+        // SINCRONIZAÇÃO EM TEMPO REAL (LISTENERS)
+        // ==========================================
+        
+        // 1. Ouvir Cadastros Auxiliares (Equipes e Endereços agrupados num único documento para poupar leituras)
+        const docAux = doc(firestore, 'auxiliares', 'dados');
+        onSnapshot(docAux, (snapshot) => {
+            if (snapshot.exists()) {
+                window.db.teams = snapshot.data().teams || [];
+                window.db.addresses = snapshot.data().addresses || [];
             } else {
-                iconEl.className = "w-16 h-16 bg-green-100 dark:bg-green-900/30 text-brandGreen rounded-full flex items-center justify-center mx-auto mb-4 text-3xl";
-                iconEl.innerHTML = '<i class="fa-solid fa-check"></i>';
+                setDoc(docAux, { teams: [], addresses: [] }); // Cria a estrutura se não existir
             }
+            loaded.aux = true; checkCloudReady(); window.updateUI();
+        });
 
-            const modal = document.getElementById('customModal');
-            modal.classList.remove('hidden');
-            modal.style.display = 'flex';
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                modal.querySelector('div').classList.remove('scale-95');
-                modal.querySelector('div').classList.add('scale-100');
-            }, 10);
-        }
+        // 2. Ouvir Códigos de Serviço
+        const colCodes = collection(firestore, 'codes');
+        onSnapshot(colCodes, (snapshot) => {
+            window.db.codes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            loaded.codes = true; checkCloudReady(); window.updateUI();
+        });
 
-        function closeModal() {
-            const modal = document.getElementById('customModal');
-            modal.classList.add('opacity-0');
-            modal.querySelector('div').classList.remove('scale-100');
-            modal.querySelector('div').classList.add('scale-95');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                modal.style.display = 'none';
-            }, 300);
-        }
+        // 3. Ouvir Lançamentos de SS
+        const colLaunches = collection(firestore, 'launches');
+        onSnapshot(colLaunches, (snapshot) => {
+            window.db.launches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            loaded.launches = true; checkCloudReady(); window.updateUI();
+        });
 
-        function navigateTo(screenId) {
-            document.querySelectorAll('.screen').forEach(s => { s.classList.remove('active'); s.style.display = 'none'; });
-            const target = document.getElementById(screenId);
-            if (target) {
-                target.style.display = (screenId === 'coverScreen' || screenId === 'indexScreen') ? 'flex' : 'block';
-                setTimeout(() => target.classList.add('active'), 20);
-                window.scrollTo(0,0);
-            }
-            if (screenId === 'dashboardScreen') setTimeout(atualizar, 150);
-        }
 
-        function toggleDarkMode() {
-            const isDark = document.body.classList.toggle('dark');
+        // ==========================================
+        // FUNÇÕES GLOBAIS (Expostas para o HTML)
+        // ==========================================
+
+        window.toggleTheme = function() {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
-            document.getElementById('theme-icon-global').className = isDark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
-            if (window.myChart) atualizar();
+            window.updateThemeIcon(isDark);
         }
 
-        function renderEquipments() {
-            const list = document.getElementById('equipmentList');
-            if (!list) return;
-            list.innerHTML = equipamentos.map(eq => `
-                <div onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${eq.coord}&travelmode=driving&layer=s','_blank')" class="glass-card p-6 rounded-3xl border-l-8 border-brandGreen hover:scale-105 cursor-pointer flex justify-between items-center transition-all">
-                    <div>
-                        <p class="text-[9px] font-black text-brandGreen uppercase opacity-60 tracking-widest">${eq.tipo}</p>
-                        <h4 class="text-sm font-black dark:text-white uppercase mt-0.5">${eq.nome}</h4>
-                        <p class="text-[8px] text-gray-400 font-mono mt-1">${eq.coord}</p>
-                    </div>
-                    <div class="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center text-brandGreen transition-colors">
-                        <i class="fa-solid fa-location-arrow"></i>
-                    </div>
-                </div>
-            `).join('');
+        window.updateThemeIcon = function(isDark) {
+            const icon = document.getElementById('theme-icon');
+            if(icon) icon.innerText = isDark ? '☀️' : '🌙';
         }
 
-        const formatNumber = num => Math.round(num).toLocaleString('pt-BR');
-        const formatDecimal = num => num.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2});
-        const formatarData = d => d.split("-").reverse().slice(0,2).join("/");
+        window.escapeHTML = function(str) {
+            if (str === null || str === undefined) return '';
+            return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
 
-        window.salvar = function(){
-            const dInput = document.getElementById('data').value;
-            const vInput = parseFloat(document.getElementById('valor').value);
-            if(!dInput || isNaN(vInput)) return;
-            let exist = dados.find(d => d.data === dInput);
-            if(exist) exist.valor = vInput; else dados.push({data: dInput, valor: vInput});
-            dados.sort((a,b) => a.data.localeCompare(b.data));
-            localStorage.setItem('dados_ete', JSON.stringify(dados));
-            window.listaAtual = dados.slice();
-            atualizar();
-            document.getElementById('valor').value = "";
-        };
-
-        window.excluir = function(){
-            const dInput = document.getElementById('data').value;
-            const idx = dados.findIndex(d => d.data === dInput);
-            if(idx !== -1) { 
-                dados.splice(idx, 1); 
-                localStorage.setItem('dados_ete', JSON.stringify(dados)); 
-                window.listaAtual = dados.slice(); 
-                atualizar(); 
-            }
-        };
-
-        window.salvarOcorrencia = function(){
-            const dInput = document.getElementById('data_ocorrencia').value;
-            const tInput = document.getElementById('texto_ocorrencia').value.trim();
-            if(!dInput || !tInput) {
-                showModal("Atenção", "Preencha a data e o texto da ocorrência.", true);
-                return;
-            }
-            let exist = ocorrencias.find(o => o.data === dInput);
-            if(exist) exist.texto = tInput; else ocorrencias.push({data: dInput, texto: tInput});
-            ocorrencias.sort((a,b) => a.data.localeCompare(b.data));
-            localStorage.setItem('ocorrencias_ete', JSON.stringify(ocorrencias));
-            atualizar(); 
-            document.getElementById('texto_ocorrencia').value = "";
-            showModal("Ocorrência Salva", "O registro foi salvo com sucesso!");
-        };
-
-        window.excluirOcorrencia = function(){
-            const dInput = document.getElementById('data_ocorrencia').value;
-            const idx = ocorrencias.findIndex(o => o.data === dInput);
-            if(idx !== -1) { 
-                ocorrencias.splice(idx, 1); 
-                localStorage.setItem('ocorrencias_ete', JSON.stringify(ocorrencias)); 
-                atualizar(); 
-                showModal("Removido", "Registro de ocorrência apagado.");
-            }
-        };
-
-        window.aplicarFiltro = function(){
-            const i = document.getElementById('filtro-inicio').value;
-            const f = document.getElementById('filtro-fim').value;
-            window.listaAtual = dados.filter(d => (!i || d.data >= i) && (!f || d.data <= f));
-            atualizar();
-            document.getElementById('periodo-display').innerText = (i || f) ? `${i.split('-').reverse().join('/')} a ${f.split('-').reverse().join('/')}` : "";
-        };
-
-        window.limparFiltro = function(){
-            window.listaAtual = dados.slice();
-            document.getElementById('filtro-inicio').value = ""; 
-            document.getElementById('filtro-fim').value = "";
-            document.getElementById('periodo-display').innerText = "";
-            atualizar();
-        };
-
-        window.atualizar = function() {
-            const lista = (window.listaAtual || []).sort((a,b) => a.data.localeCompare(b.data));
-            const tbody = document.getElementById('tabela'); if (!tbody) return;
-            tbody.innerHTML = "";
-            
-            const iFiltro = document.getElementById('filtro-inicio').value;
-            const fFiltro = document.getElementById('filtro-fim').value;
-            const listaOcorrencias = ocorrencias.filter(o => (!iFiltro || o.data >= iFiltro) && (!fFiltro || o.data <= fFiltro));
-            
-            const painelOcorrencias = document.getElementById('painel-ocorrencias');
-            const divLista = document.getElementById('lista-ocorrencias');
-            
-            if (listaOcorrencias.length > 0) {
-                painelOcorrencias.classList.remove('hidden');
-                divLista.innerHTML = listaOcorrencias.map(o => `
-                    <div class="bg-orange-50 dark:bg-orange-950/20 p-4 rounded-2xl border-l-4 border-brandOrange">
-                        <span class="text-[10px] font-black text-brandOrange uppercase tracking-widest">${formatarData(o.data)}</span>
-                        <p class="text-sm text-gray-700 dark:text-gray-300 mt-1">${o.texto}</p>
-                    </div>
-                `).join('');
-            } else {
-                painelOcorrencias.classList.add('hidden');
-            }
-
-            if(!lista.length) { 
-                ["total","media","max","min","media_ls","max_ls","min_ls","data_max","data_min"].forEach(id => {
-                    const el = document.getElementById(id);
-                    if(el) el.innerText = "--";
-                }); 
-                if(window.myChart) window.myChart.destroy(); 
-                return; 
-            }
-            
-            const v = lista.map(d => d.valor);
-            const total = v.reduce((a,b) => a + b, 0);
-            const media = total / v.length;
-            const max = Math.max(...v);
-            const min = Math.min(...v);
-            
-            document.getElementById('total').innerText = formatNumber(total);
-            document.getElementById('media').innerText = formatNumber(media);
-            document.getElementById('max').innerText = formatNumber(max);
-            document.getElementById('min').innerText = formatNumber(min);
-            
-            document.getElementById('media_ls').innerText = formatDecimal(media/86400);
-            document.getElementById('max_ls').innerText = formatDecimal(max/86400);
-            document.getElementById('min_ls').innerText = formatDecimal(min/86400);
-
-            const maxItem = lista.find(d => d.valor === max);
-            const minItem = lista.find(d => d.valor === min);
-            
-            document.getElementById('data_max').innerText = maxItem ? "Em: " + formatarData(maxItem.data) : "--";
-            document.getElementById('data_min').innerText = minItem ? "Em: " + formatarData(minItem.data) : "--";
-
-            lista.slice(-15).forEach(d => {
-                tbody.innerHTML += `<tr class="dark:text-white/80 transition-colors"><td class='p-3 font-bold text-xs'>${formatarData(d.data)}</td><td class='p-3 text-right font-black text-xs'>${formatNumber(d.valor)} L</td></tr>`;
-            });
-
-            if(window.myChart) window.myChart.destroy();
-            const isDark = document.body.classList.contains('dark');
-            window.myChart = new Chart(document.getElementById('grafico'), {
-                type: 'bar', 
-                data: { 
-                    labels: lista.map(d => formatarData(d.data)), 
-                    datasets: [{ 
-                        data: v, 
-                        backgroundColor: v.map(val => val === max ? '#f97316' : (val === min ? '#1e3a8a' : '#3b82f6')), 
-                        borderRadius: 6 
-                    }] 
-                },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false, 
-                    plugins: { 
-                        legend: { display: false },
-                        tooltip: { 
-                            callbacks: { 
-                                label: function(context) { 
-                                    const vol = context.raw;
-                                    const vazao = vol / 86400;
-                                    return [
-                                        'Volume: ' + formatNumber(vol) + ' L',
-                                        'Vazão: ' + formatDecimal(vazao) + ' L/s'
-                                    ]; 
-                                } 
-                            } 
-                        }
-                    }, 
-                    scales: { 
-                        y: { grid: { color: isDark ? '#334155' : '#f1f5f9' }, ticks: { color: '#94a3b8', font: { size: 9 }, callback: function(value) { return formatNumber(value); } } }, 
-                        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 9 } } } 
-                    } 
+        window.showTab = function(tab) {
+            const tabs = ['dashboard', 'cadastros', 'auxiliares', 'lancamentos', 'historico', 'relatorios'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                if (el) {
+                    if (t === tab) {
+                        el.classList.remove('hidden-tab'); el.classList.add('active-tab');
+                    } else {
+                        el.classList.add('hidden-tab'); el.classList.remove('active-tab');
+                    }
                 }
             });
-        };
+            window.scrollTo(0,0);
+        }
 
-        window.baixarPainel = function(){
-            const clone = document.documentElement.cloneNode(true);
-            
-            const sel = ['#nav-action-buttons', '#restoreInput', '#card-novo-registro', '#card-nova-ocorrencia'];
-            sel.forEach(s => { const el = clone.querySelector(s); if(el) el.remove(); });
-            
-            const ds = document.createElement('script');
-            ds.innerHTML = `window.EXPORTED_DATA = ${JSON.stringify(window.listaAtual)}; window.EXPORTED_OCORRENCIAS = ${JSON.stringify(ocorrencias)};`;
-            clone.querySelector('head').appendChild(ds);
-            
-            clone.querySelectorAll('.screen').forEach(s => { s.style.display = 'none'; s.classList.remove('active'); });
-            const d = clone.querySelector('#coverScreen');
-            if(d) { d.style.display = 'flex'; d.classList.add('active'); }
-            
-            const blob = new Blob(["<!DOCTYPE html>\n" + clone.outerHTML], {type:'text/html'});
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'relatorio_analise_ete.html'; a.click();
-        };
+        window.showToast = function(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if(!container) return;
+            const toast = document.createElement('div');
+            let bgColor = 'bg-blue-600 dark:bg-blue-700';
+            if(type === 'success') bgColor = 'bg-green-600 dark:bg-green-700';
+            if(type === 'error') bgColor = 'bg-red-600 dark:bg-red-700';
+            if(type === 'warning') bgColor = 'bg-orange-500 dark:bg-orange-600';
 
-        window.backupDados = function(){
-            const backupPayload = { version: 2, dados: dados, ocorrencias: ocorrencias };
-            const blob = new Blob([JSON.stringify(backupPayload)], {type:'application/json'});
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'backup_medicoes_ete.json'; a.click();
-        };
-
-        window.addEventListener('DOMContentLoaded', function(){
-            renderEquipments();
+            toast.className = `${bgColor} text-white px-6 py-3 rounded-lg shadow-xl mb-3 font-bold text-sm transform transition-all duration-300 translate-x-full opacity-0 flex items-center gap-2`;
+            let icon = type==='success' ? '✅ ' : type==='error' ? '❌ ' : type==='warning' ? '⚠️ ' : 'ℹ️ ';
+            toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
             
-            if (localStorage.getItem('theme') === 'dark') { 
-                document.body.classList.add('dark'); 
-                document.getElementById('theme-icon-global').className = 'fa-solid fa-sun'; 
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.remove('translate-x-full', 'opacity-0'));
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-x-full');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // ==========================================
+        // ESCRITA NA NUVEM (CRUD MIGRADO PARA O FIRESTORE)
+        // ==========================================
+
+        window.addTeam = async function() {
+            const val = document.getElementById('new-team-input').value.trim();
+            if(!val) return window.showToast('Preencha o nome!', 'warning');
+            if(window.db.teams.includes(val)) return window.showToast('Já cadastrado.', 'error');
+            
+            const newTeams = [...window.db.teams, val].sort();
+            try {
+                await setDoc(docAux, { teams: newTeams }, { merge: true });
+                document.getElementById('new-team-input').value = ''; 
+                window.showToast('Equipe salva na Nuvem!', 'success');
+            } catch (error) { window.showToast('Erro ao salvar.', 'error'); console.error(error); }
+        }
+
+        window.deleteTeam = async function(index) {
+            if(confirm('Remover esta equipe permanentemente?')) { 
+                const newTeams = [...window.db.teams]; newTeams.splice(index, 1);
+                await setDoc(docAux, { teams: newTeams }, { merge: true });
+                window.showToast('Removido da Nuvem.', 'success'); 
             }
-            
-            const rd = (typeof window.EXPORTED_DATA !== 'undefined') ? window.EXPORTED_DATA : (JSON.parse(localStorage.getItem('dados_ete')) || []);
-            dados = Array.isArray(rd) ? rd : [];
-            window.listaAtual = dados.slice();
+        }
 
-            const ro = (typeof window.EXPORTED_OCORRENCIAS !== 'undefined') ? window.EXPORTED_OCORRENCIAS : (JSON.parse(localStorage.getItem('ocorrencias_ete')) || []);
-            ocorrencias = Array.isArray(ro) ? ro : [];
+        window.editTeam = async function(index) {
+            const oldName = window.db.teams[index];
+            const newName = prompt("Alterar nome da equipe:", oldName);
             
-            const ri = document.getElementById('restoreInput');
-            if(ri) {
-                ri.addEventListener('change', function(e) {
-                    const file = e.target.files[0]; if (!file) return;
-                    const r = new FileReader();
-                    r.onload = function(ev) {
-                        try {
-                            const imp = JSON.parse(ev.target.result);
-                            if (Array.isArray(imp)) { 
-                                dados = imp; 
-                                localStorage.setItem('dados_ete', JSON.stringify(dados)); 
-                                window.listaAtual = dados.slice(); 
-                                atualizar(); 
-                                showModal("Restore Concluído", "Dados de volume (Backup V1) importados com sucesso!");
-                            } else if (imp.version === 2) {
-                                dados = imp.dados || [];
-                                ocorrencias = imp.ocorrencias || [];
-                                localStorage.setItem('dados_ete', JSON.stringify(dados)); 
-                                localStorage.setItem('ocorrencias_ete', JSON.stringify(ocorrencias)); 
-                                window.listaAtual = dados.slice(); 
-                                atualizar();
-                                showModal("Restore Concluído", "Dados de volume e ocorrências importados com sucesso!");
-                            } else {
-                                showModal("Ficheiro Inválido", "O arquivo selecionado não é válido.", true);
-                            }
-                        } catch (err) { 
-                            showModal("Erro de Leitura", "O arquivo selecionado está corrompido.", true); 
+            // Se o usuário cancelar, deixar vazio, ou não mudar nada, aborta a ação
+            if (newName === null || newName.trim() === "" || newName.trim() === oldName) return;
+            
+            const finalName = newName.trim();
+            // Verifica se a nova equipe já existe
+            if (window.db.teams.includes(finalName)) return window.showToast('Esta equipe já existe!', 'error');
+
+            const newTeams = [...window.db.teams];
+            newTeams[index] = finalName;
+            newTeams.sort(); // Mantém a ordem alfabética limpa no banco
+
+            try {
+                await setDoc(docAux, { teams: newTeams }, { merge: true });
+                window.showToast('Equipe alterada na Nuvem!', 'success');
+            } catch (error) { window.showToast('Erro ao alterar.', 'error'); console.error(error); }
+        }
+
+        window.addAddress = async function() {
+            const val = document.getElementById('new-addr-input').value.trim();
+            if(!val) return window.showToast('Preencha!', 'warning');
+            if(window.db.addresses.includes(val)) return window.showToast('Já cadastrado.', 'error');
+            
+            const newAddrs = [...window.db.addresses, val].sort();
+            try {
+                await setDoc(docAux, { addresses: newAddrs }, { merge: true });
+                document.getElementById('new-addr-input').value = ''; 
+                window.showToast('Endereço salvo na Nuvem!', 'success');
+            } catch (error) { window.showToast('Erro ao salvar.', 'error'); }
+        }
+
+        window.deleteAddress = async function(index) {
+            if(confirm('Remover endereço permanentemente?')) { 
+                const newAddrs = [...window.db.addresses]; newAddrs.splice(index, 1);
+                await setDoc(docAux, { addresses: newAddrs }, { merge: true });
+                window.showToast('Removido da Nuvem.', 'success'); 
+            }
+        }
+
+        window.editAddress = async function(index) {
+            const oldAddr = window.db.addresses[index];
+            const newAddr = prompt("Alterar endereço completo:", oldAddr);
+            
+            if (newAddr === null || newAddr.trim() === "" || newAddr.trim() === oldAddr) return;
+            
+            const finalAddr = newAddr.trim();
+            if (window.db.addresses.includes(finalAddr)) return window.showToast('Este endereço já existe!', 'error');
+
+            const newAddrs = [...window.db.addresses];
+            newAddrs[index] = finalAddr;
+            newAddrs.sort();
+
+            try {
+                await setDoc(docAux, { addresses: newAddrs }, { merge: true });
+                window.showToast('Endereço alterado na Nuvem!', 'success');
+            } catch (error) { window.showToast('Erro ao alterar.', 'error'); console.error(error); }
+        }
+
+        window.addCode = async function(e) {
+            e.preventDefault();
+            const originalId = document.getElementById('edit-index').value;
+            const isEdit = originalId !== "-1";
+            
+            const codeIdStr = String(document.getElementById('code-id').value).toUpperCase();
+            const newCode = {
+                desc: String(document.getElementById('code-desc').value),
+                unit: document.getElementById('code-unit').value,
+                price: document.getElementById('code-price').value
+            };
+
+            if(!isEdit && window.db.codes.some(c => c.id === codeIdStr)) return window.showToast('Código já existe!', 'error');
+
+            try {
+                // No Firestore, o ID do documento será o próprio Código do Serviço
+                await setDoc(doc(firestore, 'codes', codeIdStr), newCode);
+                
+                document.getElementById('edit-index').value = -1; 
+                e.target.reset(); 
+                window.showToast('Código salvo na Nuvem!', 'success');
+            } catch(error) { window.showToast('Erro ao salvar código.', 'error'); console.error(error); }
+        }
+
+        window.deleteCodeCloud = async function(codeId) {
+            if(confirm(`Excluir permanentemente o código ${codeId}?`)) { 
+                try {
+                    await deleteDoc(doc(firestore, 'codes', codeId));
+                    window.showToast('Excluído da Nuvem.', 'success'); 
+                } catch(e) { window.showToast('Erro ao excluir.', 'error'); }
+            }
+        }
+
+        window.saveFullLaunch = async function() {
+            if (window.editingRow) return window.showToast('Confirme a edição do item!', 'error');
+            const form = document.getElementById('launch-form');
+            if(!form.reportValidity()) return window.showToast('Preencha tudo.', 'error');
+            if(document.getElementById('launch-ss').value.trim() === '') return window.showToast('SS vazia!', 'error');
+
+            const rows = document.querySelectorAll('#items-in-launch tr'); const currentItems = [];
+            rows.forEach(r => {
+                if (r.id !== 'empty-row') {
+                    currentItems.push({
+                        code: r.cells[0].getAttribute('data-code'), desc: r.cells[1].getAttribute('data-desc'), qty: r.cells[2].getAttribute('data-qty'),
+                        comp: r.dataset.comp || '', larg: r.dataset.larg || '', dist: r.dataset.dist || '', prof: r.dataset.prof || ''
+                    });
+                }
+            });
+            if (currentItems.length === 0) return window.showToast('Adicione 1 item!', 'error');
+
+            const editId = document.getElementById('edit-launch-id').value;
+            const launchIdStr = editId ? String(editId) : String(Date.now() + Math.floor(Math.random() * 1000));
+            
+            const launchData = {
+                date: document.getElementById('launch-date').value, 
+                team: document.getElementById('launch-team').value, 
+                ss: document.getElementById('launch-ss').value.trim(), 
+                fiscal: document.getElementById('launch-fiscal').value,
+                addr: document.getElementById('launch-addr').value, 
+                obs: document.getElementById('launch-obs').value,
+                status: document.getElementById('launch-status').value, 
+                items: currentItems
+            };
+            
+            const btn = document.getElementById('btn-save-launch');
+            btn.innerHTML = 'A SALVAR...'; btn.disabled = true;
+
+            try {
+                await setDoc(doc(firestore, 'launches', launchIdStr), launchData);
+                
+                document.getElementById('edit-launch-id').value = ''; 
+                document.getElementById('items-in-launch').innerHTML = ''; 
+                window.checkEmptyTable();
+                
+                btn.innerHTML = '💾 GRAVAR NA NUVEM'; btn.className = 'md:w-3/4 bg-green-600 hover:bg-green-700 text-white p-2 rounded font-black text-base shadow-lg';
+                btn.disabled = false;
+                window.showToast('Lançamento Seguro na Nuvem!', 'success');
+            } catch(e) {
+                btn.innerHTML = '💾 GRAVAR NA NUVEM'; btn.disabled = false;
+                window.showToast('Erro de Conexão!', 'error'); console.error(e);
+            }
+        }
+
+        window.deleteLaunch = async function(id) { 
+            if(confirm('Excluir SS permanentemente?')) { 
+                try {
+                    await deleteDoc(doc(firestore, 'launches', String(id)));
+                    window.showToast('SS Excluída da Nuvem.', 'success');
+                } catch(e) { window.showToast('Erro ao excluir.', 'error'); }
+            }
+        }
+
+        // ==========================================
+        // RESTAURAÇÃO / MIGRAÇÃO JSON -> FIREBASE
+        // ==========================================
+        
+        window.handleFileSelect = async function(e) {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (event) => { 
+                try { 
+                    window.showToast('A enviar dados para a nuvem. Aguarde...', 'info');
+                    const importedDb = JSON.parse(event.target.result); 
+                    
+                    // 1. Migrar Auxiliares
+                    const newTeams = importedDb.teams || [];
+                    const newAddrs = importedDb.addresses || [];
+                    if(newTeams.length > 0 || newAddrs.length > 0) {
+                        await setDoc(docAux, { teams: newTeams, addresses: newAddrs }, { merge: true });
+                    }
+
+                    // 2. Migrar Códigos
+                    if(importedDb.codes && Array.isArray(importedDb.codes)) {
+                        for(const c of importedDb.codes) {
+                            if(c.id) await setDoc(doc(firestore, 'codes', String(c.id)), { desc: c.desc || '', unit: c.unit || '', price: c.price || '' });
                         }
-                        e.target.value = ''; 
-                    };
-                    r.readAsText(file);
-                });
-            }
-            
-            atualizar();
-        });
-    </script>
+                    }
 
-</body></html>
+                    // 3. Migrar Lançamentos
+                    if(importedDb.launches && Array.isArray(importedDb.launches)) {
+                        for(const l of importedDb.launches) {
+                            if(l.id) {
+                                // Cria uma cópia sem o ID dentro dos dados (já que o ID será o nome do documento)
+                                const dataToSave = { ...l }; delete dataToSave.id;
+                                await setDoc(doc(firestore, 'launches', String(l.id)), dataToSave);
+                            }
+                        }
+                    }
+
+                    window.showToast('MIGRAÇÃO CONCLUÍDA COM SUCESSO!', 'success'); 
+                    document.getElementById('importFile').value = '';
+                } catch (err) { 
+                    window.showToast('Arquivo inválido ou erro de rede.', 'error'); 
+                    console.error(err);
+                } 
+            };
+            reader.readAsText(file);
+        }
+
+        // ==========================================
+        // LÓGICA DE INTERFACE E RENDERING 
+        // ==========================================
+
+        window.renderAux = function() {
+            const tableTeams = document.getElementById('table-teams');
+            if(tableTeams) {
+                tableTeams.innerHTML = window.db.teams.length === 0 ? '<tr><td colspan="2" class="p-4 text-center text-gray-400 italic">Nenhum</td></tr>' : 
+                window.db.teams.map((t, i) => `<tr class="hover:bg-gray-100 dark:hover:bg-gray-600"><td class="p-2 font-medium">${window.escapeHTML(t)}</td><td class="p-2 text-center whitespace-nowrap"><button onclick="editTeam(${i})" class="text-blue-500 hover:text-blue-700 font-bold mr-3">Alterar</button><button onclick="deleteTeam(${i})" class="text-red-500 hover:text-red-700 font-bold">Excluir</button></td></tr>`).join('');
+            }
+            const tableAddrs = document.getElementById('table-addresses');
+            if(tableAddrs) {
+                tableAddrs.innerHTML = window.db.addresses.length === 0 ? '<tr><td colspan="2" class="p-4 text-center text-gray-400 italic">Nenhum</td></tr>' : 
+                window.db.addresses.map((a, i) => `<tr class="hover:bg-gray-100 dark:hover:bg-gray-600"><td class="p-2 font-medium">${window.escapeHTML(a)}</td><td class="p-2 text-center whitespace-nowrap"><button onclick="editAddress(${i})" class="text-blue-500 hover:text-blue-700 font-bold mr-3">Alterar</button><button onclick="deleteAddress(${i})" class="text-red-500 hover:text-red-700 font-bold">Excluir</button></td></tr>`).join('');
+            }
+            const selectTeam = document.getElementById('launch-team');
+            if(selectTeam) { const cur = selectTeam.value; selectTeam.innerHTML = '<option value="">Selecione...</option>' + window.db.teams.map(t => `<option value="${window.escapeHTML(t)}">${window.escapeHTML(t)}</option>`).join(''); if(window.db.teams.includes(cur)) selectTeam.value = cur; }
+            const selectAddr = document.getElementById('launch-addr');
+            if(selectAddr) { const cur = selectAddr.value; selectAddr.innerHTML = '<option value="">Selecione...</option>' + window.db.addresses.map(a => `<option value="${window.escapeHTML(a)}">${window.escapeHTML(a)}</option>`).join(''); if(window.db.addresses.includes(cur)) selectAddr.value = cur; }
+            const relTeam = document.getElementById('rel-equipe');
+            if(relTeam) { const cur = relTeam.value; relTeam.innerHTML = '<option value="">Todas as Equipes...</option>' + window.db.teams.map(t => `<option value="${window.escapeHTML(t)}">${window.escapeHTML(t)}</option>`).join(''); if(window.db.teams.includes(cur)) relTeam.value = cur; }
+            const relAddr = document.getElementById('rel-addr');
+            if(relAddr) { const cur = relAddr.value; relAddr.innerHTML = '<option value="">Todos os Endereços...</option>' + window.db.addresses.map(a => `<option value="${window.escapeHTML(a)}">${window.escapeHTML(a)}</option>`).join(''); if(window.db.addresses.includes(cur)) relAddr.value = cur; }
+        }
+
+        window.updateUnitDatalist = function() {
+            const dataList = document.getElementById('unit-options');
+            if(!dataList) return;
+            const def = ['und', 'm2', 'm3', 'm', 'pç'];
+            const custom = window.db.codes.map(c => (c.unit || '').toLowerCase().trim()).filter(u => u && !def.includes(u));
+            const all = [...new Set([...def, ...custom])];
+            dataList.innerHTML = all.map(u => `<option value="${window.escapeHTML(u)}">`).join('');
+        }
+
+        window.editCode = function(codeIdStr) {
+            const c = window.db.codes.find(x => x.id === codeIdStr);
+            if(!c) return;
+            document.getElementById('code-id').value = c.id || ''; document.getElementById('code-desc').value = c.desc || '';
+            document.getElementById('code-unit').value = c.unit || 'und'; document.getElementById('code-price').value = c.price || '';
+            document.getElementById('edit-index').value = c.id; window.showTab('cadastros'); window.showToast('Modo de edição.', 'info');
+        }
+
+        window.closeSearchModal = function() { document.getElementById('search-modal').classList.add('hidden'); }
+        
+        window.searchBy = function(type) {
+            const val = document.getElementById(type === 'ss' ? 'launch-ss' : 'launch-fiscal').value.trim();
+            if (!val) return window.showToast(`Preencha o campo.`, 'warning');
+            const found = window.db.launches.filter(l => (type === 'ss' ? l.ss === val : (l.fiscal || '').toLowerCase() === val.toLowerCase()));
+            if (found.length > 0) {
+                let html = found.map(l => {
+                    let dateStr = l.date || ''; if(dateStr.includes('-')) dateStr = `${dateStr.split('-')[2]}/${dateStr.split('-')[1]}/${dateStr.split('-')[0].slice(-2)}`;
+                    return `<div class="border p-4 rounded-lg bg-white dark:bg-gray-800 flex flex-col md:flex-row justify-between items-center shadow-sm gap-3">
+                        <div class="text-left w-full"><p class="font-black text-blue-800 dark:text-blue-400">SS: ${window.escapeHTML(l.ss)}</p><p class="text-sm mt-1">Data: ${dateStr} &bull; Fiscal: ${window.escapeHTML(l.fiscal)} &bull; Status: <b>${l.status}</b></p></div>
+                        <button onclick="editLaunch('${l.id}')" class="bg-blue-600 text-white px-5 py-2 rounded-lg font-black">Editar</button>
+                    </div>`;
+                }).join('');
+                document.getElementById('search-modal-content').innerHTML = html; document.getElementById('search-modal').classList.remove('hidden');
+                window.showToast(`Encontrado ${found.length} registo(s).`, 'success');
+            } else { window.showToast(`Livre!`, 'success'); }
+        }
+
+        window.filterCodes = function() {
+            const term = document.getElementById('search-code').value.toLowerCase();
+            const select = document.getElementById('launch-code');
+            if(!select) return;
+            select.innerHTML = '<option value="">Selecione...</option>';
+            let found = false;
+            window.db.codes.filter(c => (c.id || '').toLowerCase().includes(term) || (c.desc || '').toLowerCase().includes(term)).forEach(c => {
+                select.innerHTML += `<option value="${window.escapeHTML(c.id)}">${window.escapeHTML(c.id)} - ${window.escapeHTML(c.desc)}</option>`; found = true;
+            });
+            if(!found && term.length > 0) select.innerHTML = '<option value="">Nenhum encontrado.</option>';
+        }
+
+        window.onCodeSelect = function() {
+            const codeSelect = document.getElementById('launch-code');
+            const container = document.getElementById('dyn-fields');
+            container.innerHTML = ''; 
+            if(!codeSelect || !codeSelect.value) return;
+            const code = window.db.codes.find(c => c.id === codeSelect.value);
+            if(!code) return;
+            const unitLower = (code.unit || '').toLowerCase().trim();
+
+            if(unitLower === 'm2') {
+                container.innerHTML = `
+                    <div><label class="block text-[11px] font-bold mb-0.5">Comprimento (m)</label><input type="number" step="0.01" id="dim-comp" class="w-full border p-1.5 rounded text-black" oninput="calcQty()"></div>
+                    <div><label class="block text-[11px] font-bold mb-0.5">Largura (m)</label><input type="number" step="0.01" id="dim-larg" class="w-full border p-1.5 rounded text-black" oninput="calcQty()"></div>
+                    <div><label class="block text-[11px] font-bold mb-0.5 text-blue-700">Área (m²)</label><input readonly id="qty-val" class="w-full border p-1.5 rounded bg-blue-50 text-blue-900 font-bold"></div>`;
+            } else if(unitLower === 'm3') {
+                container.innerHTML = `
+                    <div><label class="block text-[11px] font-bold mb-0.5">Distância/Comp. (m)</label><input type="number" step="0.01" id="dim-dist" class="w-full border p-1.5 rounded text-black" oninput="calcQty()"></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="block text-[11px] font-bold mb-0.5">Larg. (m)</label><input type="number" step="0.01" id="dim-larg" class="w-full border p-1.5 rounded text-black" oninput="calcQty()"></div>
+                        <div><label class="block text-[11px] font-bold mb-0.5">Prof. (m)</label><input type="number" step="0.01" id="dim-prof" class="w-full border p-1.5 rounded text-black" oninput="calcQty()"></div>
+                    </div>
+                    <div><label class="block text-[11px] font-bold mb-0.5 text-blue-700">Volume (m³)</label><input readonly id="qty-val" class="w-full border p-1.5 rounded bg-blue-50 text-blue-900 font-bold"></div>`;
+            } else {
+                container.innerHTML = `<div class="col-span-3"><label class="block text-[11px] font-bold mb-0.5">Quantidade</label><input type="number" step="0.01" id="qty-val" required class="w-full border p-1.5 rounded text-black"></div>`;
+            }
+        }
+
+        window.calcQty = function() {
+            const codeSelect = document.getElementById('launch-code');
+            if(!codeSelect) return;
+            const code = window.db.codes.find(c => c.id === codeSelect.value);
+            if(!code) return;
+            let res = 0;
+            const unitLower = (code.unit || '').toLowerCase().trim();
+            if(unitLower === 'm2') {
+                res = parseFloat(document.getElementById('dim-comp')?.value || 0) * parseFloat(document.getElementById('dim-larg')?.value || 0);
+            } else if(unitLower === 'm3') {
+                res = parseFloat(document.getElementById('dim-dist')?.value || 0) * parseFloat(document.getElementById('dim-larg')?.value || 0) * parseFloat(document.getElementById('dim-prof')?.value || 0);
+            }
+            const qtyVal = document.getElementById('qty-val');
+            if(qtyVal) qtyVal.value = res.toFixed(2);
+        }
+
+        window.checkEmptyTable = function() {
+            const tbody = document.getElementById('items-in-launch');
+            if (tbody.children.length === 0 || (tbody.children.length === 1 && tbody.children[0].id === 'empty-row')) {
+                tbody.innerHTML = '<tr id="empty-row"><td colspan="4" class="text-center text-gray-400 italic py-2">Vazio.</td></tr>';
+            }
+        }
+
+        window.editingRow = null;
+        window.resetItemEditMode = function() {
+            if (window.editingRow) { window.editingRow.classList.remove('bg-yellow-100', 'dark:bg-yellow-900/40'); window.editingRow = null; }
+            const btn = document.getElementById('btn-add-item');
+            if (btn) { btn.innerHTML = 'Adicionar Item à Lista'; btn.classList.remove('bg-orange-500'); btn.classList.add('bg-blue-600'); }
+        }
+
+        window.removeItemRow = function(btn) {
+            const row = btn.parentElement.parentElement;
+            if (window.editingRow === row) { window.resetItemEditMode(); document.getElementById('search-code').value = ''; document.getElementById('dyn-fields').innerHTML = ''; }
+            row.remove(); window.checkEmptyTable();
+        }
+
+        window.editItemRow = function(btn) {
+            const row = btn.closest('tr');
+            if (window.editingRow) window.editingRow.classList.remove('bg-yellow-100');
+            window.editingRow = row; row.classList.add('bg-yellow-100'); 
+            const codeId = row.cells[0].getAttribute('data-code');
+            const qty = row.cells[2].getAttribute('data-qty');
+            document.getElementById('search-code').value = codeId; window.filterCodes();
+            document.getElementById('launch-code').value = codeId; window.onCodeSelect();
+            if(row.dataset.comp && document.getElementById('dim-comp')) document.getElementById('dim-comp').value = row.dataset.comp;
+            if(row.dataset.larg && document.getElementById('dim-larg')) document.getElementById('dim-larg').value = row.dataset.larg;
+            if(row.dataset.dist && document.getElementById('dim-dist')) document.getElementById('dim-dist').value = row.dataset.dist;
+            if(row.dataset.prof && document.getElementById('dim-prof')) document.getElementById('dim-prof').value = row.dataset.prof;
+            if (document.getElementById('qty-val')) document.getElementById('qty-val').value = qty;
+            const btnA = document.getElementById('btn-add-item');
+            if (btnA) { btnA.innerHTML = '🔄 Confirmar'; btnA.classList.remove('bg-blue-600'); btnA.classList.add('bg-orange-500'); }
+        }
+
+        window.addItemToLaunch = function() {
+            const codeId = document.getElementById('launch-code') ? document.getElementById('launch-code').value : '';
+            if (!codeId) return window.showToast('Selecione um código!', 'warning');
+            const qty = document.getElementById('qty-val') ? document.getElementById('qty-val').value : '';
+            if(!qty || parseFloat(qty) <= 0) return window.showToast('Preencha as dimensões!', 'error');
+            const codeObj = window.db.codes.find(c => c.id === codeId); if(!codeObj) return;
+            
+            const tbody = document.getElementById('items-in-launch');
+            const emptyRow = document.getElementById('empty-row'); if (emptyRow) emptyRow.remove();
+
+            let targetRow = window.editingRow || document.createElement('tr');
+            targetRow.dataset.comp = document.getElementById('dim-comp') ? document.getElementById('dim-comp').value : '';
+            targetRow.dataset.larg = document.getElementById('dim-larg') ? document.getElementById('dim-larg').value : '';
+            targetRow.dataset.dist = document.getElementById('dim-dist') ? document.getElementById('dim-dist').value : '';
+            targetRow.dataset.prof = document.getElementById('dim-prof') ? document.getElementById('dim-prof').value : '';
+
+            targetRow.innerHTML = `
+                <td data-code="${window.escapeHTML(codeId)}" class="font-bold py-1.5">${window.escapeHTML(codeId)}</td>
+                <td data-desc="${window.escapeHTML(codeObj.desc)}" class="py-1.5 break-words max-w-[200px]">${window.escapeHTML(codeObj.desc)}</td>
+                <td data-qty="${window.escapeHTML(qty)}" class="font-bold text-blue-700 py-1.5">${window.escapeHTML(qty)}</td>
+                <td class="text-center py-1.5">
+                    <button type="button" onclick="editItemRow(this)" class="bg-blue-50 text-blue-600 px-2 rounded border border-blue-200">Editar</button>
+                    <button type="button" onclick="removeItemRow(this)" class="bg-red-50 text-red-600 px-2 rounded border border-red-200">X</button>
+                </td>
+            `;
+            if (window.editingRow) { window.showToast(`Atualizado!`, 'success'); window.resetItemEditMode(); } 
+            else { tbody.appendChild(targetRow); window.showToast(`Adicionado!`, 'success'); }
+            
+            document.getElementById('search-code').value = '';
+            document.getElementById('launch-code').innerHTML = '<option value="">Selecione...</option>';
+            document.getElementById('dyn-fields').innerHTML = ''; window.filterCodes();
+        }
+
+        window.editLaunch = function(id) {
+            window.resetItemEditMode(); const l = window.db.launches.find(x => String(x.id) === String(id));
+            if(!l) return window.showToast('Não encontrado.', 'error');
+            window.closeSearchModal();
+            document.getElementById('edit-launch-id').value = id; document.getElementById('launch-date').value = l.date || '';
+            document.getElementById('launch-team').value = l.team || ''; document.getElementById('launch-ss').value = l.ss || '';
+            document.getElementById('launch-fiscal').value = l.fiscal || ''; document.getElementById('launch-addr').value = l.addr || '';
+            document.getElementById('launch-obs').value = l.obs || ''; document.getElementById('launch-status').value = l.status || 'Pendente';
+            
+            const tbody = document.getElementById('items-in-launch'); tbody.innerHTML = '';
+            const items = Array.isArray(l.items) ? l.items : [];
+            items.forEach(i => {
+                if (!i || !i.code) return; 
+                const row = document.createElement('tr');
+                row.dataset.comp = i.comp || ''; row.dataset.larg = i.larg || '';
+                row.dataset.dist = i.dist || ''; row.dataset.prof = i.prof || '';
+                row.innerHTML = `<td data-code="${window.escapeHTML(i.code)}" class="font-bold py-1.5">${window.escapeHTML(i.code)}</td><td data-desc="${window.escapeHTML(i.desc)}" class="py-1.5 break-words max-w-[200px]">${window.escapeHTML(i.desc)}</td><td data-qty="${window.escapeHTML(i.qty)}" class="font-bold text-blue-700 py-1.5">${window.escapeHTML(i.qty)}</td><td class="text-center py-1.5"><button type="button" onclick="editItemRow(this)" class="bg-blue-50 text-blue-600 px-2 rounded border">Editar</button> <button type="button" onclick="removeItemRow(this)" class="bg-red-50 text-red-600 px-2 rounded border">X</button></td>`;
+                tbody.appendChild(row);
+            });
+            window.checkEmptyTable();
+            const btn = document.getElementById('btn-save-launch'); btn.innerHTML = '🔄 ATUALIZAR NA NUVEM'; btn.className = 'md:w-3/4 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded font-black text-base shadow-lg';
+            window.showTab('lancamentos'); window.showToast('Modo edição.', 'info');
+        }
+
+        window.clearLaunchForm = function() {
+            window.resetItemEditMode(); document.getElementById('launch-form').reset();
+            document.getElementById('edit-launch-id').value = ''; document.getElementById('items-in-launch').innerHTML = '';
+            document.getElementById('dyn-fields').innerHTML = ''; document.getElementById('search-code').value = '';
+            window.checkEmptyTable(); window.filterCodes();
+            const btn = document.getElementById('btn-save-launch'); btn.innerHTML = '💾 GRAVAR NA NUVEM'; btn.className = 'md:w-3/4 bg-green-600 hover:bg-green-700 text-white p-2 rounded font-black text-base shadow-lg';
+        }
+
+        window.clearHistoryFilter = function() { document.getElementById('search-hist').value = ''; window.updateHistoryTable(); }
+
+        window.updateHistoryTable = function() {
+            const term = document.getElementById('search-hist').value.toLowerCase();
+            let filtered = window.db.launches.filter(l => 
+                (l.date && l.date.toLowerCase().includes(term)) || (l.ss && l.ss.toLowerCase().includes(term)) || 
+                (l.fiscal && l.fiscal.toLowerCase().includes(term)) || (l.status && l.status.toLowerCase().includes(term)) ||
+                (l.team && l.team.toLowerCase().includes(term)) ||
+                (l.items && Array.isArray(l.items) && l.items.some(i => (i.code && i.code.toLowerCase().includes(term)) || (i.desc && i.desc.toLowerCase().includes(term))))
+            );
+            
+            // Ordenar por data mais recente -> ID maior
+            filtered.sort((a, b) => b.id - a.id);
+            
+            document.getElementById('table-launches').innerHTML = filtered.map(l => {
+                const safeItems = Array.isArray(l.items) ? l.items : [];
+                const codeHtml = safeItems.map(i => `<div class="px-3 py-2 border-b font-bold truncate">${window.escapeHTML(i.code)}</div>`).join('');
+                const descHtml = safeItems.map(i => `<div class="px-3 py-2 border-b truncate" title="${window.escapeHTML(i.desc)}">${window.escapeHTML(i.desc).substring(0, 60)}</div>`).join('');
+                const qtyHtml = safeItems.map(i => `<div class="px-3 py-2 border-b text-center font-medium">${window.escapeHTML(i.qty)}</div>`).join('');
+                let dateStr = l.date || ''; if(dateStr.includes('-')){ const p = dateStr.split('-'); dateStr = `${p[2]}/${p[1]}/${p[0].slice(-2)}`; }
+
+                return `<tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td class="font-medium px-3 py-3">${dateStr}</td><td class="px-3 py-3">${window.escapeHTML(l.team)}</td>
+                    <td class="font-bold px-3 py-3">${window.escapeHTML(l.ss)}</td><td class="px-3 py-3">${window.escapeHTML(l.fiscal)}</td>
+                    <td class="px-3 py-3 truncate max-w-[200px]">${window.escapeHTML(l.addr).substring(0, 30)}</td>
+                    <td class="p-0 align-top bg-white dark:bg-gray-800 border-x">${codeHtml}</td>
+                    <td class="p-0 align-top bg-white dark:bg-gray-800 border-r max-w-[400px]">${descHtml}</td>
+                    <td class="p-0 align-top bg-white dark:bg-gray-800 border-r">${qtyHtml}</td>
+                    <td class="px-3 py-3 text-xs truncate max-w-[150px]">${window.escapeHTML(l.obs || "").substring(0,35)}</td>
+                    <td class="text-center px-3 py-3"><span class="px-3 py-1 rounded-full text-xs font-bold border">${window.escapeHTML(l.status)}</span></td>
+                    <td class="text-center px-3 py-3">
+                        <button onclick="editLaunch('${l.id}')" class="bg-blue-50 text-blue-600 px-3 py-1 rounded font-bold text-xs mr-1 border">Editar</button>
+                        <button onclick="deleteLaunch('${l.id}')" class="bg-red-50 text-red-500 px-3 py-1 rounded font-bold text-xs border">Excluir</button>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+        
+        window.updateDashboardRecent = function() {
+            const tbody = document.getElementById('table-recentes'); if(!tbody) return;
+            const recentes = [...window.db.launches].sort((a, b) => b.id - a.id).slice(0, 5);
+            if(recentes.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-400 italic">Nenhum.</td></tr>'; return; }
+            tbody.innerHTML = recentes.map(l => {
+                let dateStr = l.date || ''; if(dateStr.includes('-')){ const p = dateStr.split('-'); dateStr = `${p[2]}/${p[1]}/${p[0].slice(-2)}`; }
+                return `<tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td class="font-medium px-3 py-3">${dateStr}</td><td class="font-bold px-3 py-3">${window.escapeHTML(l.ss)}</td>
+                    <td class="px-3 py-3">${window.escapeHTML(l.team)}</td><td class="px-3 py-3 text-center"><span class="px-3 py-1 rounded-full text-xs font-bold border">${window.escapeHTML(l.status)}</span></td>
+                </tr>`;
+            }).join('');
+        }
+
+        window.updateUI = function() {
+            window.filterCodes(); window.updateUnitDatalist(); window.renderAux(); 
+            
+            // Ordenar tabela de códigos
+            const sortedCodes = [...window.db.codes].sort((a,b) => a.id.localeCompare(b.id));
+
+            document.getElementById('table-codes').innerHTML = sortedCodes.map((c, i) => `
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700"><td class="font-bold">${window.escapeHTML(c.id)}</td><td>${window.escapeHTML(c.desc || '').substring(0,60)}</td>
+                <td><span class="bg-gray-200 px-2 py-1 rounded text-xs font-bold uppercase">${window.escapeHTML(c.unit)}</span></td><td class="font-medium text-blue-800">R$ ${parseFloat(c.price).toFixed(2)}</td>
+                <td><button onclick="editCode('${c.id}')" class="text-blue-600 mr-3 font-bold text-sm">Editar</button> <button onclick="deleteCodeCloud('${c.id}')" class="text-red-500 font-bold text-sm">Excluir</button></td></tr>`).join('');
+            try {
+                window.updateHistoryTable(); window.updateDashboardRecent(); 
+                document.getElementById('count-launches').innerText = window.db.launches.length;
+                document.getElementById('count-pending').innerText = window.db.launches.filter(l => l.status === 'Pendente').length;
+                document.getElementById('count-completed').innerText = window.db.launches.filter(l => l.status === 'Concluído').length;
+            } catch(e) { console.error('Erro de UI:', e); }
+        }
+
+        window.exportData = function() {
+            const blob = new Blob([JSON.stringify(window.db)], {type: 'application/json'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `embasa_backup_cloud.json`; a.click(); 
+            window.showToast('Download do Backup concluído!', 'success');
+        }
+
+        // ====== RELATÓRIOS (Com quebras de página em PDF integradas) ======
+        window.gerarRelatorio = function(isPdf) {
+            const tipoRelatorio = document.getElementById('rel-tipo').value;
+            const dataIni = document.getElementById('rel-data-ini').value;
+            const dataFim = document.getElementById('rel-data-fim').value;
+            const equipeFiltro = document.getElementById('rel-equipe').value;
+            const addrFiltro = document.getElementById('rel-addr').value;
+            const codeFiltro = document.getElementById('rel-code').value.toLowerCase().trim();
+
+            if (!dataIni || !dataFim) return window.showToast('Informe Data Inicial e Final.', 'warning');
+            const dIni = new Date(dataIni + "T00:00:00"); const dFim = new Date(dataFim + "T23:59:59");
+            if (dIni > dFim) return window.showToast('Data Inicial maior que Final.', 'error');
+
+            const lancamentosFiltrados = window.db.launches.filter(l => {
+                if (!l.date) return false;
+                const d = new Date(l.date + "T12:00:00");
+                if (d < dIni || d > dFim) return false;
+                if (equipeFiltro && l.team !== equipeFiltro) return false;
+                if (addrFiltro && l.addr !== addrFiltro) return false;
+                return true;
+            });
+
+            let itensProcessados = [];
+            lancamentosFiltrados.forEach(l => {
+                if (Array.isArray(l.items)) {
+                    l.items.forEach(item => {
+                        if (!item.code) return;
+                        if (codeFiltro) {
+                            const matchCode = item.code.toLowerCase().includes(codeFiltro);
+                            const matchDesc = (item.desc || '').toLowerCase().includes(codeFiltro);
+                            if (!matchCode && !matchDesc) return;
+                        }
+                        itensProcessados.push({
+                            date: l.date, dateObj: new Date(l.date + "T12:00:00"), team: l.team || 'N/I',
+                            ss: l.ss || 'N/I', fiscal: l.fiscal || 'N/I', addr: l.addr || 'ENDEREÇO NÃO INFORMADO',
+                            code: item.code, desc: item.desc, qty: parseFloat(item.qty) || 0,
+                            comp: item.comp || '', larg: item.larg || '', dist: item.dist || '', prof: item.prof || ''
+                        });
+                    });
+                }
+            });
+
+            if (itensProcessados.length === 0) return window.showToast('Nenhum item encontrado no período.', 'warning');
+
+            const formataData = (dStr) => { if(!dStr) return ''; const p = dStr.split('-'); return `${p[2]}/${p[1]}/${p[0]}`; };
+            const dataHoraAtual = new Date().toLocaleString('pt-BR');
+            let html = '';
+
+            if (tipoRelatorio === 'analitico') {
+                itensProcessados.sort((a, b) => b.dateObj - a.dateObj || b.ss.localeCompare(a.ss));
+                const itensPorPagina = 18;
+                const totalPaginas = Math.ceil(itensProcessados.length / itensPorPagina) || 1;
+                
+                for (let pagina = 1; pagina <= totalPaginas; pagina++) {
+                    const inicio = (pagina - 1) * itensPorPagina;
+                    const fim = inicio + itensPorPagina;
+                    const itensPagina = itensProcessados.slice(inicio, fim);
+                    const isLastPage = (pagina === totalPaginas);
+
+                    html += `<div style="${isLastPage ? '' : 'page-break-after: always;'} box-sizing: border-box; width: 100%; padding-bottom: 5px;">`;
+                    html += `
+                        <div class="flex justify-between items-start mb-3 border-b-2 border-gray-800 pb-2">
+                            <div class="text-left text-[9px] text-gray-600 font-medium leading-tight"><strong>DashControler v1.3 (Cloud)</strong><br>By Jocivaldo Sousa<br>Emitido em: ${dataHoraAtual}</div>
+                            <div class="text-right"><h2 class="text-base font-black uppercase">Relatório Analítico por Endereço</h2><p class="text-[10px] font-bold mt-0.5">Período: ${formataData(dataIni)} a ${formataData(dataFim)}</p></div>
+                        </div>`;
+                    
+                    html += `
+                        <table class="w-full text-[8px] border-collapse border border-gray-400">
+                            <thead>
+                                <tr class="bg-gray-200 uppercase text-gray-800">
+                                    <th class="border border-gray-400 p-1 text-left w-[55px]">Data</th>
+                                    <th class="border border-gray-400 p-1 text-left w-[70px]">Equipa</th>
+                                    <th class="border border-gray-400 p-1 text-left w-[60px]">SS</th>
+                                    <th class="border border-gray-400 p-1 text-left w-[70px]">Fiscal</th>
+                                    <th class="border border-gray-400 p-1 text-left">Endereço</th>
+                                    <th class="border border-gray-400 p-1 text-left w-[60px]">Código</th>
+                                    <th class="border border-gray-400 p-1 text-left">Descrição</th>
+                                    <th class="border border-gray-400 p-1 text-center w-[35px]" title="Compr.">C/D</th>
+                                    <th class="border border-gray-400 p-1 text-center w-[35px]" title="Largura">Larg</th>
+                                    <th class="border border-gray-400 p-1 text-center w-[35px]" title="Profund.">Prof</th>
+                                    <th class="border border-gray-400 p-1 text-right w-[50px]">Quant.</th>
+                                    <th class="border border-gray-400 p-1 text-right w-[60px]">Total (R$)</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+
+                    itensPagina.forEach(i => {
+                        const codeDb = window.db.codes.find(c => c.id === i.code); const unit = codeDb ? codeDb.unit : '';
+                        const preco = codeDb ? parseFloat(codeDb.price) || 0 : 0;
+                        const valorTotalItem = (i.qty * preco).toFixed(2);
+                        const valCD = i.comp ? i.comp : (i.dist ? i.dist : '-'); const valLarg = i.larg ? i.larg : '-'; const valProf = i.prof ? i.prof : '-';
+                        
+                        html += `<tr>
+                            <td class="border border-gray-400 p-1 font-semibold">${formataData(i.date)}</td>
+                            <td class="border border-gray-400 p-1 break-words max-w-[70px]">${window.escapeHTML(i.team)}</td>
+                            <td class="border border-gray-400 p-1 font-bold">${window.escapeHTML(i.ss)}</td>
+                            <td class="border border-gray-400 p-1 break-words max-w-[70px]">${window.escapeHTML(i.fiscal)}</td>
+                            <td class="border border-gray-400 p-1 break-words">${window.escapeHTML(i.addr)}</td>
+                            <td class="border border-gray-400 p-1 font-semibold">${window.escapeHTML(i.code)}</td>
+                            <td class="border border-gray-400 p-1 break-words">${window.escapeHTML(i.desc)}</td>
+                            <td class="border border-gray-400 p-1 text-center text-gray-700 font-medium">${window.escapeHTML(valCD)}</td>
+                            <td class="border border-gray-400 p-1 text-center text-gray-700 font-medium">${window.escapeHTML(valLarg)}</td>
+                            <td class="border border-gray-400 p-1 text-center text-gray-700 font-medium">${window.escapeHTML(valProf)}</td>
+                            <td class="border border-gray-400 p-1 text-right font-bold whitespace-nowrap">${i.qty.toFixed(2)} <span class="text-[6px] text-gray-500">${window.escapeHTML(unit)}</span></td>
+                            <td class="border border-gray-400 p-1 text-right font-bold text-blue-800 whitespace-nowrap">${valorTotalItem}</td>
+                        </tr>`;
+                    });
+
+                    html += `</tbody></table><div class="mt-2 text-right text-[9px] font-bold text-gray-600">Página ${pagina} de ${totalPaginas}</div></div>`;
+                }
+                
+                document.getElementById('report-print-area').className = "bg-white text-black p-4 shadow-md w-full min-h-[210mm]"; 
+
+            } else {
+                const agrupado = {};
+                itensProcessados.forEach(i => {
+                    if (!agrupado[i.addr]) agrupado[i.addr] = {};
+                    const chaveItem = `${i.code} | ${i.desc}`;
+                    if (!agrupado[i.addr][chaveItem]) agrupado[i.addr][chaveItem] = { code: i.code, desc: i.desc, qty: 0 };
+                    agrupado[i.addr][chaveItem].qty += i.qty;
+                });
+
+                let enderecosOrdenados = Object.keys(agrupado).sort();
+                const maxLinhasPagina = 38;
+                let linhasAtuais = 0; let paginas = []; let paginaAtual = [];
+                
+                enderecosOrdenados.forEach(addr => {
+                    let itensOrdenados = Object.values(agrupado[addr]).sort((a,b) => a.code.localeCompare(b.code));
+                    let linhasDoEndereco = 2 + itensOrdenados.length + 1;
+                    if (linhasAtuais + linhasDoEndereco > maxLinhasPagina && paginaAtual.length > 0) { paginas.push(paginaAtual); paginaAtual = []; linhasAtuais = 0; }
+                    paginaAtual.push({ addr, itens: itensOrdenados }); linhasAtuais += linhasDoEndereco;
+                });
+                if (paginaAtual.length > 0) paginas.push(paginaAtual);
+                
+                const totalPaginas = paginas.length;
+                
+                paginas.forEach((pag, index) => {
+                    const pagina = index + 1; const isLastPage = (pagina === totalPaginas);
+                    html += `<div style="${isLastPage ? '' : 'page-break-after: always;'} box-sizing: border-box; width: 100%; padding-bottom: 5px;">`;
+                    html += `
+                        <div class="flex justify-between items-start mb-4 border-b-2 border-gray-800 pb-2">
+                            <div class="text-left text-[9px] text-gray-600 font-medium leading-tight"><strong>DashControler v1.3 (Cloud)</strong><br>By Jocivaldo Sousa<br>Emitido em: ${dataHoraAtual}</div>
+                            <div class="text-right"><h2 class="text-base font-black uppercase">Relatório Sintético por Endereço</h2><p class="text-[10px] font-bold mt-0.5">Período: ${formataData(dataIni)} a ${formataData(dataFim)}</p></div>
+                        </div>`;
+                        
+                    pag.forEach(bloco => {
+                        let valorTotalEndereco = 0;
+                        html += `
+                            <div class="mb-3">
+                                <h3 class="text-[9px] font-extrabold bg-gray-200 border border-gray-400 border-b-0 p-1 uppercase text-gray-800">📍 ENDEREÇO: ${window.escapeHTML(bloco.addr)}</h3>
+                                <table class="w-full text-[8px] border-collapse border border-gray-400">
+                                    <thead><tr class="bg-gray-100"><th class="border border-gray-400 p-1 text-left w-[80px]">Código</th><th class="border border-gray-400 p-1 text-left">Descrição</th><th class="border border-gray-400 p-1 text-right w-[60px]">Quant.</th></tr></thead>
+                                    <tbody>
+                        `;
+                        bloco.itens.forEach(item => {
+                            const codeDb = window.db.codes.find(c => c.id === item.code); const unit = codeDb ? codeDb.unit : ''; const preco = codeDb ? parseFloat(codeDb.price) || 0 : 0; valorTotalEndereco += (preco * item.qty);
+                            html += `<tr><td class="border border-gray-400 p-1 font-semibold">${window.escapeHTML(item.code)}</td><td class="border border-gray-400 p-1">${window.escapeHTML(item.desc)}</td><td class="border border-gray-400 p-1 text-right font-bold">${item.qty.toFixed(2)} <span class="text-[6px] text-gray-500 font-normal">${window.escapeHTML(unit)}</span></td></tr>`;
+                        });
+                        html += `<tr class="bg-gray-100"><td colspan="2" class="border border-gray-400 p-1 text-right font-black uppercase text-gray-800">Total do Endereço (R$):</td><td class="border border-gray-400 p-1 text-right font-black text-blue-800">${valorTotalEndereco.toFixed(2)}</td></tr>`;
+                        html += `</tbody></table></div>`;
+                    });
+                    html += `<div class="mt-2 text-right text-[9px] font-bold text-gray-600">Página ${pagina} de ${totalPaginas}</div></div>`;
+                });
+                document.getElementById('report-print-area').className = "bg-white text-black p-4 shadow-md w-full min-h-[297mm]"; 
+            }
+
+            document.getElementById('report-print-area').innerHTML = html;
+
+            if (isPdf) {
+                window.showToast('A gerar PDF, por favor aguarde...', 'info'); const elemento = document.getElementById('report-print-area');
+                const opt = { 
+                    margin: [5, 5, 5, 5], 
+                    filename: `Relatorio_${tipoRelatorio.toUpperCase()}_${dataIni}_a_${dataFim}.pdf`, 
+                    image: { type: 'jpeg', quality: 0.98 }, 
+                    html2canvas: { scale: 2, scrollY: 0, scrollX: 0 }, 
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: tipoRelatorio === 'analitico' ? 'landscape' : 'portrait' },
+                    pagebreak: { mode: 'css' }
+                };
+                html2pdf().set(opt).from(elemento).save().then(() => window.showToast('Download do PDF concluído!', 'success'));
+            } else { window.showToast('Relatório gerado com sucesso.', 'success'); }
+        }
+
+        // Inicializar tabela vazia
+        window.checkEmptyTable();
+    </script>
+</body>
+</html>
